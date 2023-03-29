@@ -185,6 +185,10 @@ typedef struct {
     //page to be able to unpinn it on ctx destruction
     struct page* _page_for_shared_mem;
     int kvm_fd;
+    
+    /// @brief we use this to track if the VM should be in a halted/paused
+    /// state based on our event receive function and our ack function
+    bool vm_is_paused;
 } usp_poll_api_ctx_t;
 
 enum kvm_page_track_mode {
@@ -256,6 +260,21 @@ int track_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode m
 int untrack_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode mode);
 int track_all_pages(usp_poll_api_ctx_t *ctx, enum kvm_page_track_mode mode);
 int untrack_all_pages(usp_poll_api_ctx_t *ctx, enum kvm_page_track_mode mode);
+
+/**
+ * @brief Helper function that returns true if the VM should currently be halted. This intended as a sanity check when splitting complex attack logic
+ * through multiple function, e.g. you can check that before and after a
+ * subfunction call the VM is in a paused state.
+ * 
+ * Note: There is no hard link to the kernel state. If we receive an event
+ * we set this to true and expect it to stay true until we call usp_ack_event(ctx) or usp_close_ctx(ctx). However, if there is some bug
+ * in the kernel counterpart this might not be reliable.
+ * 
+ * @param ctx 
+ * @return true if VM should be paused
+ * @return false otherwise
+ */
+bool is_vm_paused(usp_poll_api_ctx_t* ctx);
 /**
  * @brief Open new api connection
  * 

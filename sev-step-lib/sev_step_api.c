@@ -180,6 +180,7 @@ int usp_poll_event(usp_poll_api_ctx_t* ctx, int* got_event, usp_event_type_t* ev
 
     //if we are here, we hold the lock and there was an event
     *got_event = 1;
+    ctx->vm_is_paused = true;
     *event_type = ctx->shared_mem_region->event_type;
 
     uint64_t event_bytes;
@@ -229,6 +230,10 @@ int usp_block_until_event(usp_poll_api_ctx_t* ctx, usp_event_type_t* event_type,
     int err;
     int got_event;
 
+    if( ctx->vm_is_paused ) {
+        flf_printf("ctx-vm_is_paused is set to true, this will probably deadlock!\n");
+    }
+
     // interrupt while loop
     signal(SIGINT, sig_handler);
     while( keepRunning ) {
@@ -245,6 +250,10 @@ int usp_block_until_event(usp_poll_api_ctx_t* ctx, usp_event_type_t* event_type,
     return SEV_STEP_ERR;
 }
 
+bool is_vm_paused(usp_poll_api_ctx_t* ctx) {
+    return ctx->vm_is_paused;
+}
+
 void usp_ack_event(usp_poll_api_ctx_t* ctx) {
     raw_spinlock_lock(&ctx->shared_mem_region->spinlock);
     if( ctx->shared_mem_region->event_acked) {
@@ -254,6 +263,7 @@ void usp_ack_event(usp_poll_api_ctx_t* ctx) {
     // set status flags
     ctx->shared_mem_region->event_acked = 1;
     ctx->shared_mem_region->have_event = 0;
+    ctx->vm_is_paused = false;
     raw_spinlock_unlock(&ctx->shared_mem_region->spinlock);
 }
 
@@ -377,6 +387,7 @@ int usp_new_ctx(usp_poll_api_ctx_t* ctx, bool debug_mode) {
         perror("Error calling KVM_USP_INIT_POLL_API ioctl");
         return SEV_STEP_ERR;
     }
+    ctx->vm_is_paused = false;
     return SEV_STEP_OK;
 }
 
@@ -396,6 +407,7 @@ int usp_close_ctx(usp_poll_api_ctx_t *ctx) {
 
     close(ctx->kvm_fd);
     munmap(ctx->shared_mem_region,SHARED_MEM_BYTES);
+    ctx->vm_is_paused = false;
     return SEV_STEP_OK;
 }
 
