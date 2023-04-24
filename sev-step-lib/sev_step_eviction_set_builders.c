@@ -599,11 +599,11 @@ int split_large_ev_into_separate_luts(lookup_table_t combined_lut, lookup_table_
             (uint64_t)sub_ev,sub_ev_idx, sub_ev->eviction_sets_len
         );
         sub_ev->eviction_sets = malloc(sizeof(uint64_t) * sub_ev->eviction_sets_len);
-        flf_printf("sub_ev_idx %ju: all entries:\n",sub_ev_idx);
+        //flf_printf("sub_ev_idx %ju: all entries:\n",sub_ev_idx);
         //copy entries
         for(uint64_t i = 0; i < sub_ev->eviction_sets_len; i++ ) {
             sub_ev->eviction_sets[i] = combined_ev->eviction_sets[main_ev_idx];
-            printf("\t%jx\n",sub_ev->eviction_sets[i]);
+            //printf("\t%jx\n",sub_ev->eviction_sets[i]);
             main_ev_idx += 1;
         }
     }
