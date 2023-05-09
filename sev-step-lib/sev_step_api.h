@@ -255,6 +255,19 @@ int usp_poll_event(usp_poll_api_ctx_t* ctx, int* got_event, usp_event_type_t* ev
 void free_usp_event(usp_event_type_t type, void *event);
 void usp_ack_event(usp_poll_api_ctx_t *ctx);
 int usp_block_until_event(usp_poll_api_ctx_t* ctx, usp_event_type_t* event_type, void** event);
+/**
+ * @brief Blocks until event is received or SIGINT is received or should_abort(should_abort_args) returns true.
+ * 
+ * 
+ * @param ctx 
+ * @param event_type 
+ * @param event 
+ * @param should_abort 
+ * @param should_abort_args 
+ * @return int SEV_STEP_OK if event is received, SEV_STEP_ERR_ABORT if should_abort evaluates to true
+ * , SEV_STEP_ERR if interrupted by SIGINT or other error occurs
+ */
+int usp_block_until_event_or_cb(usp_poll_api_ctx_t* ctx, usp_event_type_t* event_type, void** event, bool(should_abort)(void*), void* should_abort_args);
 int get_size_for_event(usp_event_type_t event_type, uint64_t* size);
 int track_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode mode);
 int untrack_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode mode);

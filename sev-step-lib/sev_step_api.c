@@ -250,6 +250,34 @@ int usp_block_until_event(usp_poll_api_ctx_t* ctx, usp_event_type_t* event_type,
     return SEV_STEP_ERR;
 }
 
+int usp_block_until_event_or_cb(usp_poll_api_ctx_t* ctx, usp_event_type_t* event_type, void** event, bool(should_abort)(void*), void* should_abort_args) {
+        int err;
+    int got_event;
+
+    if( ctx->vm_is_paused ) {
+        flf_printf("ctx-vm_is_paused is set to true, this will probably deadlock!\n");
+    }
+
+    // interrupt while loop
+    signal(SIGINT, sig_handler);
+    while( keepRunning ) {
+        usleep(1000);
+        err = usp_poll_event(ctx,&got_event,event_type,event);
+        if(err) {
+            fprintf(stderr,"usp_poll_event failed with %d\n",err);
+            return SEV_STEP_ERR;
+        }
+        if( got_event ) {
+            return SEV_STEP_OK;
+        }
+        if( should_abort(should_abort_args) ) {
+            return SEV_STEP_ERR_ABORT;
+        }
+    }
+    printf("Abort to prevent freeze.\n");
+    return SEV_STEP_ERR;
+}
+
 bool is_vm_paused(usp_poll_api_ctx_t* ctx) {
     return ctx->vm_is_paused;
 }
