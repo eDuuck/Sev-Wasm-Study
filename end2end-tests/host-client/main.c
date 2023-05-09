@@ -184,6 +184,11 @@ int main(int argc, char** argv) {
     };*/
 
     end2end_test_t tests[] = {
+        {.name = "mixed page track bug",
+         .test_function = test_track_all_mixed_with_single,
+         .args = NULL,
+         .skip = false
+        },
         {
             .name = "setup->teardown",
             .test_function = test_setup_teardown_ctx,
