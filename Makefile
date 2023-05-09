@@ -1,5 +1,5 @@
-all: libsevstep.a end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests
-.PHONY: clean clean-apps dependencies end2end-tests-vm-server end2end-tests-hv-client libsevstep.a kaslr-attack  sev-step-tests
+all: libsevstep.a end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments
+.PHONY: clean clean-apps dependencies end2end-tests-vm-server end2end-tests-hv-client libsevstep.a kaslr-attack  sev-step-tests paper-experiments
 
 INCLUDES =   -I./external-dependencies/json-c-install/include -I./external-dependencies/curl/include 
 LIBDIRS = -L./build/libs -L./external-dependencies/curl-build/lib -L./external-dependencies/json-c-install/lib
@@ -45,6 +45,11 @@ end2end-tests-hv-client: $(OBJ_FILE_DIR)/end2end-tests/host-client/main.o $(OBJ_
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	mkdir -p ${OUTPUT_LOG_DIR}
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/end2end-tests-hv-client $^ -lsevstep -lcurl -ljson-c -pthread -lm
+
+paper-experiments: $(OBJ_FILE_DIR)/end2end-tests/host-client/paper_experiments.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	mkdir -p ${OUTPUT_LOG_DIR}
+	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/paper-experiments $^ -lsevstep -lcurl -ljson-c -pthread -lm
 
 $(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o:  sev-step-lib/raw_spinlock.asm
 	mkdir -p $(@D)
