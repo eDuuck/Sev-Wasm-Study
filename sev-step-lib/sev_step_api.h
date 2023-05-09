@@ -206,6 +206,10 @@ typedef struct {
     sev_step_partial_vmcb_save_area_t decrypted_vmsa_data;
 	/// @brief if true, decrypted_vmsa_data contains valid data
 	bool is_decrypted_vmsa_data_valid;
+    /// @brief instructions retired by the guest since the last page fault event
+    /// The VMRUN instructions is included, i.e. if the guest executes one instruction the
+    /// value will be two
+    uint64_t retired_instructions;
 } usp_page_fault_event_t;
 
 typedef struct {
