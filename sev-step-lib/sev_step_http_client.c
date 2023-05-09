@@ -71,8 +71,6 @@ CURLcode curl_fetch_url(CURL *ch, const char *url, struct curl_fetch_st *fetch) 
     /* set default user agent */
     curl_easy_setopt(ch, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
-    /* set timeout */
-    curl_easy_setopt(ch, CURLOPT_TIMEOUT, 15);
 
     /* enable location redirects */
     curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
