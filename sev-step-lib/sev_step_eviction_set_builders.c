@@ -61,9 +61,7 @@ void* find_l2_ev_thread(void* void_args) {
     uint64_t* unused_mappings = malloc(sizeof(uint64_t) * unused_mappings_max_len);
     
     //flf_printf("thread id %d: started\n",args->id);
-    uint64_t iteration_count = 0;
     while(1) {
-        iteration_count += 1;
         //check if there is still work to do
     
         pthread_mutex_lock(&args->shared_state->lock);

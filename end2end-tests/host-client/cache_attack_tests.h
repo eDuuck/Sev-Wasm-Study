@@ -548,7 +548,6 @@ int test_do_cache_attack_l2(char* fp,void* void_args) {
     //if true, the last page fault event belonged to the target pages
     bool on_victim_pages = false;
 
-    uint64_t zero_steps_on_target = 0;
     uint64_t single_steps_on_target = 0;
 
     /*We expect the victim program do be done after this many events. Contains some slack to account for scheduling and zero steps
@@ -654,7 +653,6 @@ int test_do_cache_attack_l2(char* fp,void* void_args) {
 
             switch (step_event->counted_instructions) {
             case 0:
-                zero_steps_on_target += 1;
 
                 if( do_cache_attack_until_next_single_step ) {
                     printf("%sZero Stepped, re-priming cache. Was forced zero-step? %d\n",fp, remaining_forced_zero_steps_for_cache_attack > 0);
@@ -1054,7 +1052,6 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
     //if true, the last page fault event belonged to the target pages
     bool on_victim_pages = false;
 
-    uint64_t zero_steps_on_target = 0;
     uint64_t single_steps_on_target = 0;
 
     /*We expect the victim program do be done after this many events. Contains some slack to account for scheduling and zero steps
@@ -1154,7 +1151,6 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
 
             switch (step_event->counted_instructions) {
             case 0:
-                zero_steps_on_target += 1;
 
                 if( do_cache_attack_until_next_single_step ) {
                     printf("%sZero Stepped, re-priming cache\n",fp);

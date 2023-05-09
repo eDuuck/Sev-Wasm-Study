@@ -345,7 +345,7 @@ int single_step_simple(char* format_prefix,single_step_simple_args_t* args,singl
     //
 
     usp_poll_api_ctx_t ctx;
-    //TODO: make configureable
+    //TODO: make configurable
     int res = HOST_CLIENT_SUCCESS;
     bool single_stepping_enabled = false;
     bool api_open = false;
@@ -374,8 +374,6 @@ int single_step_simple(char* format_prefix,single_step_simple_args_t* args,singl
 
 
     bool encountered_multistep = false;
-    int idx_first_multistep = -1;
-    int size_first_multistep = -1;
     for( int current_event_idx = 0; current_event_idx < args->want_steps; current_event_idx++) {
 
         printf("%sWaiting next event, event_idx=%d\n",format_prefix,current_event_idx);
@@ -405,8 +403,6 @@ int single_step_simple(char* format_prefix,single_step_simple_args_t* args,singl
             default:
                 results->multi_steps += 1;
                 if( !encountered_multistep ) {
-                    idx_first_multistep = current_event_idx;
-                    size_first_multistep = step_event->counted_instructions;
                     encountered_multistep = true;
                 }
                 break;
