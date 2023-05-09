@@ -421,10 +421,18 @@ int usp_new_ctx(usp_poll_api_ctx_t* ctx, bool debug_mode) {
 
 int usp_close_ctx(usp_poll_api_ctx_t *ctx) {
 
-
     disable_single_stepping(ctx);
-    for(int i = 0; i < KVM_PAGE_TRACK_MAX; i++) {
-        untrack_all_pages(ctx,i);
+
+   
+    enum kvm_page_track_mode modes[] = {
+        KVM_PAGE_TRACK_WRITE,
+        KVM_PAGE_TRACK_ACCESS,
+        KVM_PAGE_TRACK_EXEC
+    };
+    for(uint64_t i = 0; i < sizeof(modes)/sizeof(modes[0]); i++) {
+        if(SEV_STEP_OK != untrack_all_pages(ctx,modes[i]) ) {
+            flf_printf("untrack_all_pages with mode %d failed\n",modes[i]);
+        }
     }
 
     int err = ioctl(ctx->kvm_fd, KVM_USP_CLOSE_POLL_API, NULL );
