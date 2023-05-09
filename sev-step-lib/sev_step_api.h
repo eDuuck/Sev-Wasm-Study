@@ -218,6 +218,7 @@ typedef struct {
 	/// which improves single stepping accuracy
 	uint64_t* gpas_target_pages;
 	uint64_t gpas_target_pages_len;
+    bool do_tlb_flush_before_each_step;
 } sev_step_param_t;
 
 /**
@@ -312,6 +313,15 @@ int usp_close_ctx(usp_poll_api_ctx_t *ctx);
  * @return int SEV_STEP_OK or SEV_STEP_ERR
  */
 int enable_single_stepping(usp_poll_api_ctx_t *ctx,uint32_t timer_value,uint64_t* gpas_target_pages,uint64_t gpas_target_pages_len);
+/**
+ * @brief Like enable_single_stepping but exposes additional config options
+ *
+ * Additional params compared to enable_single_stepping
+ * @param tlb_flush If true, flush guest tlb, else not
+ * @return int
+ */
+int enable_single_stepping_ex(usp_poll_api_ctx_t *ctx, uint32_t timer_value, uint64_t *gpas_target_pages, uint64_t gpas_target_pages_len, bool tlb_flush);
+
 int disable_single_stepping(usp_poll_api_ctx_t *ctx);
 
 /**

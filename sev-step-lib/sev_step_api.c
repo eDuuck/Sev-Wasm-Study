@@ -356,13 +356,30 @@ int untrack_all_pages(usp_poll_api_ctx_t *ctx, enum kvm_page_track_mode mode) {
     return SEV_STEP_OK;
 }
 
-int enable_single_stepping(usp_poll_api_ctx_t *ctx,uint32_t timer_value,uint64_t* gpas_target_pages,uint64_t gpas_target_pages_len) {
+int enable_single_stepping(usp_poll_api_ctx_t *ctx, uint32_t timer_value, uint64_t *gpas_target_pages, uint64_t gpas_target_pages_len) {
     sev_step_param_t params = {
         .gpas_target_pages = gpas_target_pages,
         .gpas_target_pages_len = gpas_target_pages_len,
         .tmict_value = timer_value,
+        .do_tlb_flush_before_each_step = true,
     };
     if(ioctl(ctx->kvm_fd, KVM_SEV_STEP_ENABLE, &params) < 0) {
+        perror("enable_single_stepping: Error calling KVM_SEV_STEP_ENABLE ioctl");
+        return SEV_STEP_ERR;
+    }
+    return SEV_STEP_OK;
+}
+
+int enable_single_stepping_ex(usp_poll_api_ctx_t *ctx, uint32_t timer_value, uint64_t *gpas_target_pages, uint64_t gpas_target_pages_len, bool tlb_flush)
+{
+    sev_step_param_t params = {
+        .gpas_target_pages = gpas_target_pages,
+        .gpas_target_pages_len = gpas_target_pages_len,
+        .tmict_value = timer_value,
+        .do_tlb_flush_before_each_step = tlb_flush,
+    };
+    if (ioctl(ctx->kvm_fd, KVM_SEV_STEP_ENABLE, &params) < 0)
+    {
         perror("enable_single_stepping: Error calling KVM_SEV_STEP_ENABLE ioctl");
         return SEV_STEP_ERR;
     }
