@@ -46,16 +46,16 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
         goto cleanup;
     }
     printf("%s Victim program: GPA is 0x%lx and VADDR is 0x%lx\n",
-        format_prefix,vicim_program_data.gpa,vicim_program_data.vaddr);
+           format_prefix, victim_program_data->gpa, victim_program_data->vaddr);
 
     //
     // Exec track gpa of victim function and signal vm server to start victim program async
     // Then, enter main event loop
     //
 
-    printf("%stracking gpa 0x%lx with mode %s\n",format_prefix,vicim_program_data.gpa,tracking_mode_to_string(KVM_PAGE_TRACK_EXEC));
-    if( SEV_STEP_OK != track_page(&ctx,vicim_program_data.gpa,KVM_PAGE_TRACK_EXEC) ) {
-        printf("%sinitial track page for 0x%lx" BRED " FAILED\n" reset,format_prefix,vicim_program_data.gpa);
+    printf("%stracking gpa 0x%lx with mode %s\n",format_prefix,victim_program_data->gpa,tracking_mode_to_string(KVM_PAGE_TRACK_EXEC));
+    if( SEV_STEP_OK != track_page(&ctx,victim_program_data->gpa,KVM_PAGE_TRACK_EXEC) ) {
+        printf("%sinitial track page for 0x%lx" BRED " FAILED\n" reset,format_prefix,victim_program_data->gpa);
         res = HOST_CLIENT_ERROR;
         goto cleanup;
     }
@@ -80,9 +80,9 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     uint64_t multi_steps_on_target = 0;
 
     /*We expect the victim program do be done after this many events. Contains some slack to account for scheduling and zero steps
-    vicim_program_data.expected_offsets_len is the exact number of instructions/single step events for the target
+    victim_program_data->expected_offsets_len is the exact number of instructions/single step events for the target
     */
-    int upper_event_thresh = 4 * vicim_program_data.expected_offsets_len;
+    int upper_event_thresh = 4 * victim_program_data->expected_offsets_len;
     //if true, we have single stepped through the whole target program successfully
     bool finished_single_stepping_target = false;
 
@@ -101,7 +101,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
             printf("%s Pagefault Event: {GPA:0x%lx}\n",format_prefix,pf_event->faulted_gpa);
 
             if( on_victim_pages ) {
-                if( pf_event->faulted_gpa == vicim_program_data.gpa ) {
+                if( pf_event->faulted_gpa == victim_program_data->gpa ) {
                     printf("%s on_victim_pages=true but got fault for victim page! This should not happen\n",format_prefix);
                     res = HOST_CLIENT_ERROR;
                     goto cleanup;
@@ -120,7 +120,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
                         res = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
-                    if( SEV_STEP_OK != track_page(&ctx,vicim_program_data.gpa,KVM_PAGE_TRACK_EXEC)) {
+                    if( SEV_STEP_OK != track_page(&ctx,victim_program_data->gpa,KVM_PAGE_TRACK_EXEC)) {
                         printf("%sfailed to to track victim page\n",format_prefix);
                         res = HOST_CLIENT_ERROR;
                         goto cleanup;
@@ -128,7 +128,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
                     on_victim_pages = false;
                 }
             } else { //currently not on victim pages
-                if( pf_event->faulted_gpa == vicim_program_data.gpa ) {
+                if( pf_event->faulted_gpa == victim_program_data->gpa ) {
                     printf("%s entering victim pages. enabling single stepping (timer 0x%x) and tracking all but the target page\n",
                         format_prefix,args->timer_value);
                     
@@ -138,13 +138,13 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
                         res = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
-                    if( SEV_STEP_OK != untrack_page(&ctx,vicim_program_data.gpa,KVM_PAGE_TRACK_EXEC)) {
+                    if( SEV_STEP_OK != untrack_page(&ctx,victim_program_data->gpa,KVM_PAGE_TRACK_EXEC)) {
                         printf("%suntrack_page failed\n",format_prefix);
                         res = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
 
-                    if( SEV_STEP_OK != enable_single_stepping(&ctx,args->timer_value,&vicim_program_data.gpa,1) ) {
+                    if( SEV_STEP_OK != enable_single_stepping(&ctx,args->timer_value,&victim_program_data->gpa,1) ) {
                         printf("%sfailed to enable single stepping\n",format_prefix);
                         res = HOST_CLIENT_ERROR;
                         goto cleanup;
