@@ -26,6 +26,8 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
 
     usp_poll_api_ctx_t ctx;
     int res = HOST_CLIENT_SUCCESS;
+    usp_event_type_t event_type;
+    void *event_buffer = NULL;
 
     bool api_open = false;
     printf("%sInitializing API...\n",format_prefix);
@@ -36,9 +38,9 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     printf("%sAPI initialization done!\n",format_prefix);
     api_open = true;
 
-    victim_program_data_t vicim_program_data;
+    victim_program_data_t* victim_program_data = malloc(sizeof(victim_program_data_t)); 
     printf("%scalling vm_server_single_step_victim_init to prepare scenario\n",format_prefix);
-    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,&vicim_program_data) ) {
+    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,victim_program_data) ) {
         printf("%svm_server_single_step_victim_init " BRED "FAILED\n" reset,format_prefix);
         res = HOST_CLIENT_ERROR;
         goto cleanup;
@@ -69,8 +71,6 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
 
 
 
-    usp_event_type_t event_type;
-    void* event_buffer;
 
     //if true, the last page fault event belonged to the target pages
     bool on_victim_pages = false;
@@ -172,13 +172,13 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
             case 1:
                 single_steps_on_target += 1;
 
-                if( args->check_debug_rip && (single_steps_on_target < vicim_program_data.expected_offsets_len) ) {
+                if( args->check_debug_rip && (single_steps_on_target < victim_program_data->expected_offsets_len) ) {
                     if( !step_event->is_decrypted_vmsa_data_valid)  {
                         printf("%s"BHRED"NO VMSA DATA"reset" args->check_debug_rip was specified but VMSA data not valid\n",format_prefix);
                         res = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
-                    uint64_t expected_vaddr = vicim_program_data.vaddr + vicim_program_data.expected_offsets[single_steps_on_target-1];
+                    uint64_t expected_vaddr = victim_program_data->vaddr + victim_program_data->expected_offsets[single_steps_on_target-1];
                     uint64_t rip = step_event->decrypted_vmsa_data.register_values[VRN_RIP];
                     if( (rip >> 12) != (expected_vaddr >> 12 )) {
                          printf("%s"BHRED "vaddr check failed: page part of vaddr is wrong, single_steps_on_target = %ju, expected vaddr 0x%lx got 0x%lx\n" reset,
@@ -197,7 +197,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
                     
                 }
 
-                if( single_steps_on_target > vicim_program_data.expected_offsets_len ) {
+                if( single_steps_on_target > victim_program_data->expected_offsets_len ) {
                     printf("%sFinished single stepping target program !\n",format_prefix);
                     finished_single_stepping_target = true;
                 }
@@ -217,7 +217,8 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
 
         printf("%ssending ack for event_idx %d\n",format_prefix,current_event_idx);
         usp_ack_event(&ctx);
-       
+        free_usp_event(event_type, event_buffer);
+        event_buffer = NULL;
     } //end of main event loop
 
     printf("%sClosing API...\n",format_prefix);
@@ -258,7 +259,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
 
     if( !finished_single_stepping_target ) {
         printf("%s" BHRED "Did not finish target!. Wanted %lu single step events on target, got only %ju\n" reset,
-            format_prefix,vicim_program_data.expected_offsets_len,single_steps_on_target);
+            format_prefix,victim_program_data->expected_offsets_len,single_steps_on_target);
         res = HOST_CLIENT_ERROR;
         goto cleanup;
     };
@@ -268,13 +269,14 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     //
     bool vm_alive = false;
     for( int retries = 1; !vm_alive && retries >= 0; retries--) {
-        victim_program_data_t _dummy;
+        victim_program_data_t* _dummy = malloc(sizeof(victim_program_data_t));
         printf("%ssending dummy request to vm to ensure that it is alive and well\n",format_prefix);
-        if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,&_dummy) ) {
+        if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,_dummy) ) {
             printf("%sdummy request " BRED "FAILED. %d retries remaining\n" reset,format_prefix,retries);
         } else {
             vm_alive = true;
         }
+        free_victim_program_data_t(_dummy);
     }
    if( vm_alive ) {
         printf("%s VM seems to be alive and well\n",format_prefix);
@@ -294,7 +296,12 @@ cleanup:
         printf("%sAPI closed!\n",format_prefix);
         }
     }
-    
+
+    if( event_buffer != NULL ) {
+        free_usp_event(event_type,event_buffer);
+    }
+    free_victim_program_data_t(victim_program_data);
+
     return res;
 }
 
