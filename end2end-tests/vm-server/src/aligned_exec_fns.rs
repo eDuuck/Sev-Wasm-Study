@@ -70,7 +70,8 @@ impl SingleStepTarget {
             SingleStepTarget::NopSlide => Ok(SingleStepTargetDesc {
                 fn_vaddr: nop_slide_asm as u64,
                 //these are obtained by manual analysis of nop_slide_asm
-                expected_offsets: (1..0x258).collect(),
+                //expected_offsets: (1..0x1387).collect(),
+                expected_offsets: (1..4000).collect(),
                 execute: Box::new(|| { unsafe {nop_slide_asm()}}),
                 cache_attack_target: None
             }),
