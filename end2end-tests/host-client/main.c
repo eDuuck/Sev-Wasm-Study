@@ -88,16 +88,20 @@ int main(int argc, char** argv) {
         have_timer_value = true;
         flf_printf("Parsed timer value 0x%jx\n",timer_value);
     }
+    if(! have_timer_value ) {
+        flf_printf("No timer value provided, some tests will be skipped")
+    }
 
 
     //
     // test_single_step_simple_long
     //
 
-    //State of this test: for larger values (~ 100 the VM now sometimes freezes until the user interacts with the VM on the terminal ?!?!)
+    // TODO: this test freezes the VM at the end when we explicitly send a timer interrupt in the kernel
+    // after disabling single stepping. However, for the test_single_step_nop_slide_simple test it is exactly the other way around. I guess there are some contexts in which we cannot send the timer interrupt. When single stepping only userspace code we properly never encounter these
     test_single_step_simple_args_t test_single_step_simple_long_args_t = {
         .timer_value = timer_value,
-        .want_steps = 100,//5000,
+        .want_steps = 5000,
         .zero_step_abort_fraction = 0.8,
         .multi_step_abort_fraction = 0.2,
     };
@@ -144,20 +148,6 @@ int main(int argc, char** argv) {
         .args = (void*)&test_single_step_simple_short_rep_args,
     };*/
 
-    //
-    // test_single_step_nop_slide_simple
-    //
-    /*test_single_step_nop_slide_args_t test_single_step_nop_slide_args = {
-        .timer_value = timer_value,
-        .check_debug_rip = true,
-        .zero_step_abort_fraction = 0.8,
-        .multi_step_abort_fraction = 0.2,
-    };
-    end2end_test_t test_single_step_nop_slide_simple = {
-        .name = "test_single_step_nop_slide_simple",
-        .test_function = test_single_step_nop_slide,
-        .args = (void*)&test_single_step_nop_slide_args,
-    };*/
 
 
     test_do_cache_attack_l2_args_t test_do_cache_attack_l2_args = {
