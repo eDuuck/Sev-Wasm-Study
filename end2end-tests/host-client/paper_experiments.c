@@ -13,6 +13,7 @@
 #include "vm-server-client.h"
 
 #include "test_definitions.h"
+#include "cache_attack_helpers.h"
 #include "paper_experiments.h"
 
 /**
@@ -63,7 +64,11 @@ int main(int argc, char **argv)
         flf_printf("Parsed timer value 0x%jx\n", timer_value);
     }
 
+    //
     // define all know experiments
+    //
+
+    //single step evaluation
     paper_experiments_nop_slide_args_t single_step_no_tlb_no_a_bit_args = {
         .timer_value = timer_value,
         .check_debug_rip = true,
@@ -108,6 +113,33 @@ int main(int argc, char **argv)
     single_step_flush_tlb_reset_a_bit.name = "single_step_flush_tlb_reset_a_bit",
     single_step_flush_tlb_reset_a_bit.test_function = paper_experiments_nop_slide;
 
+    //cache attack evaluation
+    paper_experiment_prime_probe_args_t prime_probe_lfence_args = {
+        .timer_value = timer_value,
+        .zero_step_timer_value = -1,
+        .forced_zero_steps_per_mem_access = 0,
+        .check_debug_rip = true,
+        .cache_attack_target = VICTIM_PROGRAM_EVAL_CACHE_VICTIM_LFENCE,
+    };
+    end2end_test_t prime_probe_lfence = {
+        .args = (void *)&prime_probe_lfence_args,
+        .name = "prime_probe_lfence",
+        .test_function = paper_experiment_prime_probe,
+    };
+
+    paper_experiment_prime_probe_args_t prime_probe_no_lfence_args = {
+        .timer_value = timer_value,
+        .zero_step_timer_value = -1,
+        .forced_zero_steps_per_mem_access = 0,
+        .check_debug_rip = true,
+        .cache_attack_target = VICTIM_PROGRAM_EVAL_CACHE_VICTIM,
+    };
+    end2end_test_t prime_probe_no_lfence = {
+        .args = (void *)&prime_probe_no_lfence_args,
+        .name = "prime_probe_no_lfence",
+        .test_function = paper_experiment_prime_probe,
+    };
+
     // match string arg to experiment
     end2end_test_t selected_experiment;
     if (strcmp(selected_experiment_name, single_step_no_tlb_no_a_bit.name) == 0)
@@ -145,6 +177,24 @@ int main(int argc, char **argv)
             return 1;
         }
         selected_experiment = single_step_flush_tlb_reset_a_bit;
+    }
+    else if (strcmp(selected_experiment_name, prime_probe_lfence.name) == 0)
+    {
+        if (!have_timer_value)
+        {
+            flf_printf("Provide timer value as additional cli args\n");
+            return 1;
+        }
+        selected_experiment = prime_probe_lfence;
+    }
+    else if (strcmp(selected_experiment_name, prime_probe_no_lfence.name) == 0)
+    {
+        if (!have_timer_value)
+        {
+            flf_printf("Provide timer value as additional cli args\n");
+            return 1;
+        }
+        selected_experiment = prime_probe_no_lfence;
     }
     else
     {
