@@ -14,8 +14,8 @@ void print_cache_timings(char *fp, uint64_t *timings, uint64_t *perf_values, uin
                          int way_count, uint64_t table_paddr, uint64_t expected_offset)
 {
 
-    printf("%sResults of cache attack on table at hpa 0x%lx. Want high at offset offset 0x%lx\n",
-           fp, table_paddr, expected_offset);
+    printf("%sResults of cache attack on table at hpa 0x%lx. Got %ju probes. Want high at offset offset 0x%lx\n",
+           fp, table_paddr, timings_len,expected_offset);
 
     uint64_t set_timings_len = (timings_len / way_count);
     printf("set_timings_len = %ju\n", set_timings_len);

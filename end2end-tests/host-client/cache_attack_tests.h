@@ -841,6 +841,8 @@ typedef struct {
  * reached. Then perform and evaluate cache attack using the data provided from the vm-server
  * Use aliasing vaddr cache attack
  * 
+ * This test only works with the kernel branch "paperExperimentAliasingCacheAttack"
+ * 
  * @param fp 
  * @param void_args 
  * @return int 
@@ -851,22 +853,25 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
 
     test_do_cache_attack_kernel_aliasing_args_t* args = (test_do_cache_attack_kernel_aliasing_args_t*)void_args;
 
+    usp_event_type_t event_type;
+    void* event_buffer = NULL;
     //
     // Setup Eviction Set
     //
-    victim_program_data_t victim_program_data;
+    victim_program_t victim_program = VICTIM_PROGRAM_SIMPLE_CACHE_VICTIM_LFENCE;
+    victim_program_data_t* victim_program_data =  malloc(sizeof(victim_program_data_t));
     printf("%s%s:%d calling vm_server_single_step_victim_init to prepare scenario\n",fp,__FILE__,__LINE__);
-    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_SIMPLE_CACHE_VICTIM,&victim_program_data) ) {
+    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(victim_program,victim_program_data) ) {
         printf("%s%s:%d vm_server_single_step_victim_init " BRED "FAILED\n" reset,fp,__FILE__,__LINE__);
         exit_code = HOST_CLIENT_ERROR;
         goto cleanup;
     }
 
     printf("%s%s:%d Victim program GPA is 0x%lx and VADDR is 0x%lx\n",fp,__FILE__,__LINE__,
-        victim_program_data.gpa,victim_program_data.vaddr);
+        victim_program_data->gpa,victim_program_data->vaddr);
     printf("%s%s:%d Lookup table has GPA 0x%lx and VADDR 0x%lx and is 0x%lx bytes long\n",fp,__FILE__,__LINE__,
-        victim_program_data.cache_attack_data->lookup_table_gpa,victim_program_data.cache_attack_data->lookup_table_vaddr,
-        victim_program_data.cache_attack_data->lookup_table_bytes);
+        victim_program_data->cache_attack_data->lookup_table_gpa,victim_program_data->cache_attack_data->lookup_table_vaddr,
+        victim_program_data->cache_attack_data->lookup_table_bytes);
 
 
 
@@ -883,8 +888,8 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
 
     lookup_table_t lut = {
         //GPA is correct here, need to refactor lookup_table_t to support both gpa and gva
-        .base_vaddr_table = victim_program_data.cache_attack_data->lookup_table_gpa,
-        .table_bytes = victim_program_data.cache_attack_data->lookup_table_bytes,
+        .base_vaddr_table = victim_program_data->cache_attack_data->lookup_table_gpa,
+        .table_bytes = victim_program_data->cache_attack_data->lookup_table_bytes,
     };
     build_eviction_set_param_t build_ev_req = {
         .attack_targets = &lut,
@@ -901,14 +906,6 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
     }
 
 
-    /*
-     * Perform Simple Prime and Probe Test
-     * Now we have prepared our eviction set
-     * Lets run the victim program and perform the cache attack
-     * This is similar to test_single_step_nop_slide. However, we have additional logic to
-     * do the cache attack
-     */
-     
 
 
     //
@@ -916,26 +913,21 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
     // Then, enter main event loop
     //
 
-    printf("%stracking gpa 0x%lx with mode %s\n",fp,victim_program_data.gpa,tracking_mode_to_string(KVM_PAGE_TRACK_EXEC));
-    if( SEV_STEP_OK != track_page(&ctx,victim_program_data.gpa,KVM_PAGE_TRACK_EXEC) ) {
-        printf("%sinitial track page for 0x%lx" BRED " FAILED\n" reset,fp,victim_program_data.gpa);
+    printf("%stracking gpa 0x%lx with mode %s\n",fp,victim_program_data->gpa,tracking_mode_to_string(KVM_PAGE_TRACK_EXEC));
+    if( SEV_STEP_OK != track_page(&ctx,victim_program_data->gpa,KVM_PAGE_TRACK_EXEC) ) {
+        printf("%sinitial track page for 0x%lx" BRED " FAILED\n" reset,fp,victim_program_data->gpa);
         exit_code = HOST_CLIENT_ERROR;
         goto cleanup;
     }
 
     printf("%scalling vm_server_single_step_victim_start\n",fp);
-    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_start(VICTIM_PROGRAM_SIMPLE_CACHE_VICTIM) ) {
+    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_start(victim_program) ) {
         printf("%svm_server_single_step_victim_start " BRED "FAILED\n" reset,fp);
         exit_code = HOST_CLIENT_ERROR;
         goto cleanup;
     }
 
     printf("%sentering main event loop\n",fp);
-
-
-
-    usp_event_type_t event_type;
-    void* event_buffer;
 
     //if true, the last page fault event belonged to the target pages
     bool on_victim_pages = false;
@@ -945,7 +937,7 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
     /*We expect the victim program do be done after this many events. Contains some slack to account for scheduling and zero steps
     vicim_program_data.expected_offsets_len is the exact number of instructions/single step events for the target
     */
-    int upper_event_thresh = 20 * victim_program_data.expected_offsets_len;
+    int upper_event_thresh = 20 * victim_program_data->expected_offsets_len;
     //if true, we have single stepped through the whole target program successfully
     bool finished_single_stepping_target = false;
 
@@ -967,7 +959,7 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
             printf("%s Pagefault Event: {GPA:0x%lx}\n",fp,pf_event->faulted_gpa);
 
             if( on_victim_pages ) {
-                if( pf_event->faulted_gpa == victim_program_data.gpa ) {
+                if( pf_event->faulted_gpa == victim_program_data->gpa ) {
                     printf("%s on_victim_pages=true but got fault for victim page! This should not happen\n",fp);
                     exit_code = HOST_CLIENT_ERROR;
                     goto cleanup;
@@ -986,7 +978,7 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
                         exit_code = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
-                    if( SEV_STEP_OK != track_page(&ctx,victim_program_data.gpa,KVM_PAGE_TRACK_EXEC)) {
+                    if( SEV_STEP_OK != track_page(&ctx,victim_program_data->gpa,KVM_PAGE_TRACK_EXEC)) {
                         printf("%sfailed to to track victim page\n",fp);
                         exit_code = HOST_CLIENT_ERROR;
                         goto cleanup;
@@ -994,7 +986,7 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
                     on_victim_pages = false;
                 }
             } else { //currently not on victim pages
-                if( pf_event->faulted_gpa == victim_program_data.gpa ) {
+                if( pf_event->faulted_gpa == victim_program_data->gpa ) {
                     printf("%s entering victim pages. enabling single stepping (timer 0x%x) and tracking all but the target page\n",
                         fp,args->timer_value);
                     
@@ -1004,13 +996,13 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
                         exit_code = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
-                    if( SEV_STEP_OK != untrack_page(&ctx,victim_program_data.gpa,KVM_PAGE_TRACK_EXEC)) {
+                    if( SEV_STEP_OK != untrack_page(&ctx,victim_program_data->gpa,KVM_PAGE_TRACK_EXEC)) {
                         printf("%suntrack_page failed\n",fp);
                         exit_code = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
 
-                    if( SEV_STEP_OK != enable_single_stepping(&ctx,args->timer_value,&victim_program_data.gpa,1) ) {
+                    if( SEV_STEP_OK != enable_single_stepping(&ctx,args->timer_value,&victim_program_data->gpa,1) ) {
                         printf("%sfailed to enable single stepping\n",fp);
                         exit_code = HOST_CLIENT_ERROR;
                         goto cleanup;
@@ -1026,9 +1018,11 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
             print_single_step_event(fp,step_event);
             
             if(step_event->cache_attack_timings != NULL ) {
+                //we pass "1" for "way count" argument here, because we only have one prime/probe
+                //address per cache set in this attack.
                 print_cache_timings(fp,step_event->cache_attack_timings,
                 step_event->cache_attack_perf_values,step_event->cache_attack_data_len,
-                8,lut.base_vaddr_table,expected_cache_attack_offset);
+                1,lut.base_vaddr_table,expected_cache_attack_offset);
             }
 
             if( !on_victim_pages ) {
@@ -1055,13 +1049,13 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
 
                 do_cache_attack_until_next_single_step = false;
 
-                if( args->check_debug_rip && (single_steps_on_target < victim_program_data.expected_offsets_len) ) {
+                if( args->check_debug_rip && (single_steps_on_target < victim_program_data->expected_offsets_len) ) {
                     if( !step_event->is_decrypted_vmsa_data_valid ) {
                         printf("%s"BHRED"NO VMSA DATA"reset" but check debug rip requested!\n",fp);
                         exit_code = HOST_CLIENT_ERROR;
                         goto cleanup;
                     }
-                    uint64_t expected_vaddr = victim_program_data.vaddr + victim_program_data.expected_offsets[single_steps_on_target-1];
+                    uint64_t expected_vaddr = victim_program_data->vaddr + victim_program_data->expected_offsets[single_steps_on_target-1];
                     uint64_t rip = step_event->decrypted_vmsa_data.register_values[VRN_RIP];
                     if( (rip >> 12) != (expected_vaddr >> 12 )) {
                          printf("%s"BHRED "vaddr check failed: page part of vaddr is wrong, single_steps_on_target = %ju,"
@@ -1081,28 +1075,33 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
                 }
 
                 //Check if we should perform a cache attack. Remember. RIP points to next instruction
-                uint64_t assumed_offset = victim_program_data.expected_offsets[single_steps_on_target-1];
-                int cache_attack_idx;
-                for( uint64_t i = 0; i < victim_program_data.cache_attack_data->len; i++) {
-                    if( victim_program_data.cache_attack_data->offsets_with_mem_access[i] == assumed_offset ) {
-                        do_cache_attack_until_next_single_step = true;
-                        cache_attack_idx = i;
-                        break;
+                if ( (single_steps_on_target-1) < victim_program_data->expected_offsets_len ) {
+                    uint64_t assumed_offset = victim_program_data->expected_offsets[single_steps_on_target-1];
+                    int cache_attack_idx;
+                    for( uint64_t i = 0; i < victim_program_data->cache_attack_data->len; i++) {
+                        if( victim_program_data->cache_attack_data->offsets_with_mem_access[i] == assumed_offset ) {
+                            do_cache_attack_until_next_single_step = true;
+                            cache_attack_idx = i;
+                            break;
+                        }
+                    }
+
+                    if( do_cache_attack_until_next_single_step ) {
+                        printf("%sRequesting Cache Attack\n",fp);
+                        expected_cache_attack_offset = victim_program_data->cache_attack_data->mem_access_target_offset[cache_attack_idx];
+                        printf("%s"BHYEL"Expecting an access to offset 0x%lx\n"reset,fp,expected_cache_attack_offset);
+                        if( SEV_STEP_OK != sev_step_do_cache_attack_next_step(&ctx,0,false,0)) {
+                            printf("%sev_step_do_cache_attack_next_step failed\n",fp);
+                            exit_code = HOST_CLIENT_ERROR;
+                            goto cleanup;
+                        }
                     }
                 }
+             
 
-                if( do_cache_attack_until_next_single_step ) {
-                    printf("%sRequesting Cache Attack\n",fp);
-                    expected_cache_attack_offset = victim_program_data.cache_attack_data->mem_access_target_offset[cache_attack_idx];
-                    printf("%s"BHYEL"Expecting an access to offset 0x%lx\n"reset,fp,expected_cache_attack_offset);
-                    if( SEV_STEP_OK != sev_step_do_cache_attack_next_step(&ctx,0,false,0)) {
-                        printf("%sev_step_do_cache_attack_next_step failed\n",fp);
-                        exit_code = HOST_CLIENT_ERROR;
-                        goto cleanup;
-                    }
-                }
+               
 
-                if( single_steps_on_target > victim_program_data.expected_offsets_len ) {
+                if( single_steps_on_target > victim_program_data->expected_offsets_len ) {
                     printf("%sFinished single stepping target program !\n",fp);
                     finished_single_stepping_target = true;
                 }
@@ -1121,6 +1120,8 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
         }
 
         printf("%ssending ack for event_idx %d\n",fp,current_event_idx);
+        free_usp_event(event_type,event_buffer);
+        event_buffer = NULL;
         usp_ack_event(&ctx);
        
     } //end of main event loop
@@ -1153,7 +1154,7 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
 
     if( !finished_single_stepping_target ) {
         printf("%s" BHRED "Did not finish target!. Wanted %lu single step events on target, got only %ju\n" reset,
-            fp,victim_program_data.expected_offsets_len,single_steps_on_target);
+            fp,victim_program_data->expected_offsets_len,single_steps_on_target);
         exit_code = HOST_CLIENT_ERROR;
         goto cleanup;
     };
@@ -1167,13 +1168,15 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
     //
     bool vm_alive = false;
     for( int retries = 1; !vm_alive && retries >= 0; retries--) {
-        victim_program_data_t _dummy;
+        victim_program_data_t* _dummy = malloc(sizeof(victim_program_data_t));
         printf("%ssending dummy request to vm to ensure that it is alive and well\n",fp);
-        if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,&_dummy) ) {
+        if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,_dummy) ) {
             printf("%sdummy request " BRED "FAILED. %d retries remaining\n" reset,fp,retries);
         } else {
             vm_alive = true;
         }
+        free_victim_program_data_t(_dummy);
+
     }
 
     if( vm_alive ) {
@@ -1195,6 +1198,14 @@ int test_do_cache_attack_kernel_aliasing(char* fp,void* void_args) {
         } else {
             printf("%s%s:%d API closed!\n",fp,__FILE__,__LINE__);
         }
+    }
+
+    if(event_buffer != NULL ) {
+        free_usp_event(event_type,event_buffer);
+    }
+
+    if( victim_program_data != NULL ) {
+        free_victim_program_data_t(victim_program_data);
     }
    
 
