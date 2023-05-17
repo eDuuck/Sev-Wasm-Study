@@ -1,7 +1,11 @@
 all: libsevstep.a end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 .PHONY: clean clean-apps dependencies end2end-tests-vm-server end2end-tests-hv-client libsevstep.a kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 
-INCLUDES =   -I./external-dependencies/json-c-install/include -I./external-dependencies/curl/include 
+ifndef KERNEL_HEADER_PATH
+$(error Missing KERNEL_HEADER_PATH env var. Did you source environment.env ? Also check the comments in the file on how to set this variable)
+endif
+
+INCLUDES =   -I./external-dependencies/json-c-install/include -I./external-dependencies/curl/include  -I${KERNEL_HEADER_PATH}
 LIBDIRS = -L./build/libs -L./external-dependencies/curl-build/lib -L./external-dependencies/json-c-install/lib
 CFLAGS = -Wall -Wextra -fstack-protector -Wshadow -Werror -fno-omit-frame-pointer  #-g  -fsanitize=address 
 
