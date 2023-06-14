@@ -133,6 +133,14 @@ typedef enum {
  * @return int SEV_STEP_OK or SEV_STEP_ERR
  */
 int vmsa_register_name_from_str(char* c, vmsa_register_name_t* result);
+/**
+ * @brief Returns the name of reg as a string
+ * 
+ * @param reg enum value for the register
+ * @return char* statically allocated string with the register name, i.e. no need to free.
+ * If there is not match for reg, NULL is returned
+ */
+char* vmsa_register_name_to_str(vmsa_register_name_t reg);
 
 typedef struct {
     /// @brief indexed by vmsa_register_name_t

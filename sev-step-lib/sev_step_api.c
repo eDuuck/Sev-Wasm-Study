@@ -103,6 +103,57 @@ int SHARED_MEM_BYTES = 20 * 4096;
 static volatile int keepRunning = 1;
 void sig_handler(int dummy);
 
+char* vmsa_register_name_to_str(vmsa_register_name_t reg) {
+    switch (reg)
+    {
+    case VRN_RFLAGS:
+        return "rflags";
+        break;
+    case VRN_RIP:
+        return "rip";
+        break;
+    case VRN_RSP:
+        return "rsp";
+        break;
+    case VRN_R10:
+        return "r10";
+        break;
+    case VRN_R11:
+        return "r11";
+        break;
+    case VRN_R12:
+        return "r12";
+        break;
+    case VRN_R13:
+        return "r13";
+        break;
+    case VRN_R8:
+        return "r8";
+        break;
+    case VRN_R9:
+        return "r9";
+        break;
+    case VRN_RBX:
+        return "rbx";
+        break;
+    case VRN_RCX:
+        return "rcx";
+        break;
+    case VRN_RDX:
+        return "rdx";
+        break;
+    case VRN_RSI:
+        return "rsi";
+        break;
+    case VRN_CR3:
+        return "cr3";
+        break;
+    default:
+        return NULL;
+        break;
+    }
+}
+
 int vmsa_register_name_from_str(char* c, vmsa_register_name_t* result) {
     int res = SEV_STEP_OK;
     //create copy with all lowercase

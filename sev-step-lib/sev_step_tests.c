@@ -187,7 +187,8 @@ int test_cache_attack_log_workflow(void* args) {
         len,
         0,
         0,
-        0
+        0,
+        NULL
     );
     if( err == SEV_STEP_ERR ) {
         flf_printf("cache_attack_log_add_trace failed");

@@ -123,7 +123,7 @@ cache_attack_logfile_t* cache_attack_log_new_log(lookup_table_t* lookup_tables, 
 }
 
 int cache_attack_log_add_trace(cache_attack_logfile_t* l, uint64_t lookup_table_idx, uint64_t* timings,
-    uint64_t* perf_diffs, uint64_t len, uint64_t expected_offset,uint64_t step_size, uint64_t memaccess_id) {
+    uint64_t* perf_diffs, uint64_t len, uint64_t expected_offset,uint64_t step_size, uint64_t memaccess_id, uint64_t* register_values) {
 
     json_object* traces;
     if( !json_object_object_get_ex(l->root, "traces", &traces) ) {
@@ -227,6 +227,39 @@ int cache_attack_log_add_trace(cache_attack_logfile_t* l, uint64_t lookup_table_
         flf_printf("json_object_object_add failed\n");
         return SEV_STEP_ERR; 
     }
+
+    if( register_values != NULL ) {
+        json_object* json_register_values = json_object_new_object();
+        if( json_register_values == NULL ) {
+            flf_printf("json_object_new_object json_register_values failed\n");
+            return SEV_STEP_ERR;
+        }
+        for(int i=0; i < VRN_MAX; i++) {
+            char* reg_name = vmsa_register_name_to_str(i);
+            if( reg_name == NULL ) {
+                flf_printf("vmsa_register_name_to_str failed for value %d\n",i);
+                return SEV_STEP_ERR;
+            }
+
+            json_object* json_reg_value = json_object_new_uint64(register_values[i]);
+            if( json_reg_value == NULL ) {
+                flf_printf("json_object_new_uint64 json_reg_value failed\n");
+                return SEV_STEP_ERR;
+            }
+  
+
+            if(json_object_object_add(json_register_values, reg_name, json_reg_value)) {
+                flf_printf("json_object_add failed\n");
+                return SEV_STEP_ERR;
+            }
+        }
+
+        if(json_object_object_add(trace, "register values", json_register_values)) {
+            flf_printf("json_object_add failed\n");
+            return SEV_STEP_ERR;
+        }
+    }
+
 
     //add trace object to traces
     if( json_object_array_add(traces, trace) ) {

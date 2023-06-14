@@ -722,7 +722,9 @@ int paper_experiment_prime_probe(char *fp, void *void_args)
                         step_event->cache_attack_data_len,
                         expected_cache_attack_offset,
                         step_event->counted_instructions,
-                        single_steps_on_target - 1);
+                        single_steps_on_target - 1,
+                        NULL
+                    );
                     if (SEV_STEP_ERR == res)
                     {
                         printf("%scache_attack_log_add_trace failed\n", fp);
@@ -775,7 +777,9 @@ int paper_experiment_prime_probe(char *fp, void *void_args)
                         step_event->cache_attack_data_len,
                         expected_cache_attack_offset,
                         step_event->counted_instructions,
-                        single_steps_on_target - 2);
+                        single_steps_on_target - 2,
+                        NULL
+                        );
                     if (SEV_STEP_ERR == res)
                     {
                         printf("%scache_attack_log_add_trace failed\n", fp);

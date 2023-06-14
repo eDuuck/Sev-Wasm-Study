@@ -44,11 +44,13 @@ cache_attack_logfile_t* cache_attack_log_new_log(lookup_table_t* lookup_tables, 
  * @param expected_offset offset from start of attacked lookup table where we expect a high access time
  * @param step_size how large the step was between priming and probing. Usually you have zero step or single step
  * @param memaccess_id Caller defined id that e.g. can be used that multiple access belong the the same instance of a memory access.
+ * @param register_values Optional. If not null, this must be an array of length VRN_MAX with the register values at the time of the memory access using vmsa_register_name_t for index to register mapping. This is e.g. the case for decrypted_vmsa_data.register_values
+ * in the sev step event
  * Intended to record multiple zero step cache traces for the same memory access
  * @return int SEV_STEP_OK or SEV_STEP_ERR
  */
 int cache_attack_log_add_trace(cache_attack_logfile_t* l, uint64_t lookup_table_idx, uint64_t* timings,
-    uint64_t* perf_diffs, uint64_t len, uint64_t expected_offset,uint64_t step_size, uint64_t memaccess_id);
+    uint64_t* perf_diffs, uint64_t len, uint64_t expected_offset,uint64_t step_size, uint64_t memaccess_id, uint64_t* register_values);
 
 /**
  * @brief Serialize log to json and write to file
