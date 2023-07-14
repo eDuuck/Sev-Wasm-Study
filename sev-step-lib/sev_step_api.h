@@ -246,6 +246,10 @@ typedef struct {
 	/// @brief length of both cache_attack_timings and
 	/// cache_attack_perf_values
 	uint64_t  cache_attack_data_len; 
+
+	/********** NEMESIS ************/
+    uint64_t tsc_latency;
+	/******************************/
 } sev_step_event_t;
 
 //

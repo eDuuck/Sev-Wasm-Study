@@ -118,6 +118,45 @@ int victim_program_to_str(victim_program_t program,char** res) {
     case VICTIM_PROGRAM_NOP_SLIDE:
         *res = "NopSlide";
         return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_ADD_SLIDE:
+        *res = "AddSlide";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_RDRAND64_SLIDE:
+        *res = "Rdrand64Slide";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_RDRAND32_SLIDE:
+        *res = "Rdrand32Slide";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR16_SLIDE:
+        *res = "DivSlideR16";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR32_SLIDE:
+        *res = "DivSlideR32";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR64_SLIDE0:
+        *res = "DivSlide0R64";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR64_SLIDE1:
+        *res = "DivSlide1R64";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR64_SLIDE2:
+        *res = "DivSlide2R64";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR64_SLIDE3:
+        *res = "DivSlide3R64";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_DIVR64_SLIDE4:
+        *res = "DivSlide4R64";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_MULR64_SLIDE:
+        *res = "MulSlideR64";
+        return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_RCL_SLIDE:
+	*res = "RclSlide";
+	return HOST_CLIENT_SUCCESS;
+    case VICTIM_PROGRAM_LAR_SLIDE:
+	*res = "LarSlide";
+	return HOST_CLIENT_SUCCESS;
     case VICTIM_PROGRAM_SIMPLE_CACHE_VICTIM:
         *res = "SimpleCacheTarget";
         return HOST_CLIENT_SUCCESS;
@@ -158,7 +197,7 @@ int vm_server_single_step_victim_init(victim_program_t program, victim_program_d
         return HOST_CLIENT_ERROR;
     }
 
-    //Prepare requets data
+    //Prepare requests data
     json_in = json_object_new_object();
     json_object_object_add(json_in, "victim_program",json_object_new_string(program_name));
     char* url = "http://localhost:8080/single-step-victim/init";

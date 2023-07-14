@@ -2,6 +2,7 @@
 #define SINGLE_STEPPING_TESTS_H
 
 #include <stdio.h>
+#include <json-c/json.h>
 
 #include "../../sev-step-lib/ansi-color-codes.h"
 #include "../../sev-step-lib/sev_step_api.h"
@@ -17,6 +18,12 @@ typedef struct {
     float multi_step_abort_fraction;
     //if true, we expect step events to contain rip data and check them against the expected offsets
     bool check_debug_rip;
+    // json filename to save stepping to
+    char* filename;
+    //if true, save single stepping to json file
+    bool save_logs_to_file;
+    // instruction slide to use
+    victim_program_t instruction_slide;
 } test_single_step_nop_slide_args_t;
 int test_single_step_nop_slide(char* format_prefix,void* void_args) {
      //
@@ -24,7 +31,15 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     //
     test_single_step_nop_slide_args_t* args = (test_single_step_nop_slide_args_t*)void_args;
 
-    usp_poll_api_ctx_t ctx;
+    json_object *root, *steps = NULL;
+    if (args->save_logs_to_file) {
+        root = json_object_new_object();
+        steps = json_object_new_object();
+        json_object_object_add(root, "steps", steps);
+       
+    }
+
+        usp_poll_api_ctx_t ctx;
     int res = HOST_CLIENT_SUCCESS;
     usp_event_type_t event_type;
     void *event_buffer = NULL;
@@ -40,7 +55,8 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
 
     victim_program_data_t* victim_program_data = malloc(sizeof(victim_program_data_t)); 
     printf("%scalling vm_server_single_step_victim_init to prepare scenario\n",format_prefix);
-    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,victim_program_data) ) {
+    if (HOST_CLIENT_ERROR == vm_server_single_step_victim_init(args->instruction_slide, victim_program_data))
+    {
         printf("%svm_server_single_step_victim_init " BRED "FAILED\n" reset,format_prefix);
         res = HOST_CLIENT_ERROR;
         goto cleanup;
@@ -61,7 +77,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     }
 
     printf("%scalling vm_server_single_step_victim_start\n",format_prefix);
-    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_start(VICTIM_PROGRAM_NOP_SLIDE) ) {
+    if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_start(args->instruction_slide) ) {
         printf("%svm_server_single_step_victim_start " BRED "FAILED\n" reset,format_prefix);
         res = HOST_CLIENT_ERROR;
         goto cleanup;
@@ -88,7 +104,7 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
 
     for( int current_event_idx = 0; current_event_idx < upper_event_thresh && !finished_single_stepping_target; current_event_idx++) {
 
-        printf("%sWaiting next event, event_idx=%d\n",format_prefix,current_event_idx);
+        //printf("%sWaiting next event, event_idx=%d\n",format_prefix,current_event_idx);
         if( SEV_STEP_ERR == usp_block_until_event(&ctx,&event_type,&event_buffer) ) {
             printf("%susp_block_until_event" BRED " FAILED\n" reset,format_prefix);
             res = HOST_CLIENT_ERROR;
@@ -157,7 +173,20 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
             }
         } else if( event_type == SEV_STEP_EVENT) {
             sev_step_event_t* step_event = (sev_step_event_t*)event_buffer;
-            print_single_step_event(format_prefix,step_event);
+            //print_single_step_event(format_prefix,step_event);
+
+            if(args->save_logs_to_file){
+                json_object *step = json_object_new_object();
+                json_object_object_add(step, "counted instructions", json_object_new_int(step_event->counted_instructions));
+                if( step_event->counted_instructions > 0) {
+                    //json_object_object_add(step, "VM exit", json_object_new_int64(step_event->tsc_vm_exit));
+                    //json_object_object_add(step, "VM enter", json_object_new_int64(step_event->tsc_vm_enter));
+                    json_object_object_add(step, "Latency", json_object_new_int64(step_event->tsc_latency));
+                }
+		char s[8];
+		sprintf(s, "%d", current_event_idx);
+                json_object_object_add(steps, s, step);
+            }
 
             if( !on_victim_pages ) {
                 printf("%s on_victim_pages=false but single step event. This should not happen\n",format_prefix);
@@ -242,6 +271,25 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     };
     print_step_histogram(format_prefix,histogram_args);
 
+    if(args->save_logs_to_file){
+        json_object *histogram = json_object_new_object();
+
+        int total_steps = zero_steps_on_target + single_steps_on_target;
+        double zero_step_fraction = (double)zero_steps_on_target/total_steps;
+        double single_step_fraction = (double)single_steps_on_target/total_steps;
+
+        json_object_object_add(histogram, "timer value", json_object_new_int(args->timer_value));
+        json_object_object_add(histogram, "zero steps", json_object_new_int(zero_steps_on_target));
+        json_object_object_add(histogram, "single steps", json_object_new_int(single_steps_on_target));
+        json_object_object_add(histogram, "total steps", json_object_new_int(total_steps));
+        json_object_object_add(histogram, "zero step fraction (%)", json_object_new_double(zero_step_fraction*100));
+        json_object_object_add(histogram, "single step fraction (%)", json_object_new_double(single_step_fraction*100));
+
+        json_object_object_add(root, "statistics", histogram);
+
+        json_object_to_file(args->filename, root);
+        json_object_put(root);
+    }
     
     double zero_step_fraction = (double)zero_steps_on_target/histogram_args.total_step_count;
     double multi_step_fraction = (double)multi_steps_on_target/histogram_args.total_step_count;
@@ -271,9 +319,12 @@ int test_single_step_nop_slide(char* format_prefix,void* void_args) {
     for( int retries = 1; !vm_alive && retries >= 0; retries--) {
         victim_program_data_t* _dummy = malloc(sizeof(victim_program_data_t));
         printf("%ssending dummy request to vm to ensure that it is alive and well\n",format_prefix);
-        if ( HOST_CLIENT_ERROR == vm_server_single_step_victim_init(VICTIM_PROGRAM_NOP_SLIDE,_dummy) ) {
+        if (HOST_CLIENT_ERROR == vm_server_single_step_victim_init(args->instruction_slide, _dummy))
+        {
             printf("%sdummy request " BRED "FAILED. %d retries remaining\n" reset,format_prefix,retries);
-        } else {
+        }
+        else
+        {
             vm_alive = true;
         }
         free_victim_program_data_t(_dummy);

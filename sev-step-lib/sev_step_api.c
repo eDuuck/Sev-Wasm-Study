@@ -211,6 +211,10 @@ void print_single_step_event(char* fp, sev_step_event_t* event) {
         printf("%sSingle Step Event: {RIP:0x%lx, StepSize: %u}\n",fp,event->decrypted_vmsa_data.register_values[VRN_RIP], event->counted_instructions);
     } else {
         printf("%sSingle Step Event (no vmsa data): {StepSize: %u}\n",fp,event->counted_instructions);
+        if(event->counted_instructions > 0) {
+            //NEMESIS
+            printf("%s {Latency: %lu}\n", fp,  event->tsc_latency);
+        }
     }
 }
 

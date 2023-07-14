@@ -13,6 +13,20 @@ static UNALIGNED_MEM_BUFFER : &'static [u8] = &[0xff; 4* 4096];
 #[derive(Hash,PartialEq, Eq,Clone, Copy)]
 pub enum SingleStepTarget {
     NopSlide,
+    AddSlide,
+    RclSlide,
+    LarSlide,
+    Rdrand64Slide,
+    Rdrand32Slide,
+    DivSlideR16,
+    DivSlideR32,
+    DivSlide0R64,
+    DivSlide1R64,
+    DivSlide2R64,
+    DivSlide3R64,
+    DivSlide4R64,
+    MulSlideR64,
+
     SimpleCacheTarget,
     SimpleCacheTargetLfence,
     EvalCacheTarget,
@@ -41,6 +55,20 @@ impl ToString for SingleStepTarget {
     fn to_string(&self) -> String {
         match self {
             Self::NopSlide => String::from("NopSlide"),
+            Self::AddSlide => String::from("AddSlide"),
+            Self::RclSlide => String::from("RclSlide"),
+            Self::LarSlide => String::from("LarSlide"),
+            Self::Rdrand32Slide => String::from("Rdrand32Slide"),
+            Self::Rdrand64Slide => String::from("Rdrand64Slide"),
+            Self::DivSlideR16 => String::from("DivSlideR16"),
+            Self::DivSlideR32 => String::from("DivSlideR32"),
+            Self::DivSlide0R64 => String::from("DivSlide0R64"),
+            Self::DivSlide1R64 => String::from("DivSlide1R64"),
+            Self::DivSlide2R64 => String::from("DivSlide2R64"),
+            Self::DivSlide3R64 => String::from("DivSlide3R64"),
+            Self::DivSlide4R64 => String::from("DivSlide4R64"),
+            Self::MulSlideR64 => String::from("MulSlideR64"),
+
             Self::SimpleCacheTarget => String::from("SimpleCacheTarget"),
             Self::SimpleCacheTargetLfence => String::from("SimpleCacheTargetLfence"),
             Self::EvalCacheTarget => String::from("EvalCacheTarget"),
@@ -55,6 +83,20 @@ impl FromStr for SingleStepTarget {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "NopSlide" => Ok(SingleStepTarget::NopSlide),
+            "AddSlide" => Ok(SingleStepTarget::AddSlide),
+            "RclSlide" => Ok(SingleStepTarget::RclSlide),
+            "LarSlide" => Ok(SingleStepTarget::LarSlide),
+            "Rdrand64Slide" => Ok(SingleStepTarget::Rdrand64Slide),
+            "Rdrand32Slide" => Ok(SingleStepTarget::Rdrand32Slide),
+            "DivSlideR16" => Ok(SingleStepTarget::DivSlideR16),
+            "DivSlideR32" => Ok(SingleStepTarget::DivSlideR32),
+            "DivSlide0R64" => Ok(SingleStepTarget::DivSlide0R64),
+            "DivSlide1R64" => Ok(SingleStepTarget::DivSlide1R64),
+            "DivSlide2R64" => Ok(SingleStepTarget::DivSlide2R64),
+            "DivSlide3R64" => Ok(SingleStepTarget::DivSlide3R64),
+            "DivSlide4R64" => Ok(SingleStepTarget::DivSlide4R64),
+            "MulSlideR64" => Ok(SingleStepTarget::MulSlideR64),
+
             "SimpleCacheTarget" => Ok(SingleStepTarget::SimpleCacheTarget),
             "SimpleCacheTargetLfence" => Ok(SingleStepTarget::SimpleCacheTargetLfence),
             "EvalCacheTarget" => Ok(Self::EvalCacheTarget),
@@ -70,11 +112,102 @@ impl SingleStepTarget {
             SingleStepTarget::NopSlide => Ok(SingleStepTargetDesc {
                 fn_vaddr: nop_slide_asm as u64,
                 //these are obtained by manual analysis of nop_slide_asm
-                //expected_offsets: (1..0x1387).collect(),
-                expected_offsets: (1..4000).collect(),
+                expected_offsets: (1..0x3e8).collect(),
                 execute: Box::new(|| { unsafe {nop_slide_asm()}}),
                 cache_attack_target: None
             }),
+            SingleStepTarget::AddSlide => Ok(SingleStepTargetDesc {
+                fn_vaddr: add_slide_asm as u64,
+                // 4000 = 1000 * 4 bytes
+                expected_offsets: (1..0xfa0).step_by(4).collect(),
+                execute: Box::new(|| { unsafe {add_slide_asm()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::RclSlide => Ok(SingleStepTargetDesc {
+                fn_vaddr: rcl_slide_asm as u64,
+                // 4000 = 1000 * 4 bytes
+                expected_offsets: (1..0xfa0).step_by(4).collect(),
+                execute: Box::new(|| { unsafe {rcl_slide_asm()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::LarSlide => Ok(SingleStepTargetDesc {
+                fn_vaddr: lar_slide_asm as u64,
+                // 4000 = 1000 * 4 bytes
+                expected_offsets: (1..0xfa0).step_by(4).collect(),
+                execute: Box::new(|| { unsafe {lar_slide_asm()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::Rdrand64Slide => Ok(SingleStepTargetDesc {
+                fn_vaddr: rdrand_slide_asm as u64,
+                // 1000 * 4 bytes
+                expected_offsets: (1..0xfa0).step_by(4).collect(),
+                execute: Box::new(|| { unsafe {rdrand_slide_asm()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::Rdrand32Slide => Ok(SingleStepTargetDesc {
+                fn_vaddr: rdrand32_slide_asm as u64,
+                // 1000 * 3 bytes
+                expected_offsets: (1..0xbb8).step_by(3).collect(),
+                execute: Box::new(|| { unsafe {rdrand32_slide_asm()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::DivSlideR32 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide_asm_r32 as u64,
+                // 240 * 17 bytes
+                expected_offsets: vec![0x5, 0x5, 0x5, 0x2].into_iter().cycle().take(240*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide_asm_r32()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::DivSlide0R64 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide_asm_r64 as u64,
+                // 170 * 24 bytes
+                expected_offsets: vec![0x7, 0x7, 0x7, 0x3].into_iter().cycle().take(170*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide_asm_r64()}}),
+                cache_attack_target: None
+            }),
+           SingleStepTarget::DivSlide1R64 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide1_asm_r64 as u64,
+                // 170 * 24 bytes
+                expected_offsets: vec![0x7, 0x7, 0x7, 0x3].into_iter().cycle().take(170*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide1_asm_r64()}}),
+                cache_attack_target: None
+            }),
+           SingleStepTarget::DivSlide2R64 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide2_asm_r64 as u64,
+                // 136 * 24 bytes
+                expected_offsets: vec![0xa, 0x7, 0x7, 0x3].into_iter().cycle().take(136*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide2_asm_r64()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::DivSlide3R64 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide3_asm_r64 as u64,
+                // 150 * 27
+                expected_offsets: vec![0xa, 0x7, 0x7, 0x3].into_iter().cycle().take(150*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide3_asm_r64()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::DivSlide4R64 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide4_asm_r64 as u64,
+                // 136 * 30
+                expected_offsets: vec![0xa, 0x7, 0xa, 0x3].into_iter().cycle().take(136*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide4_asm_r64()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::DivSlideR16 => Ok(SingleStepTargetDesc {
+                fn_vaddr: div_slide_asm_r16 as u64,
+                // 227 * 18 
+                expected_offsets: vec![0x5, 0x5, 0x5, 0x3].into_iter().cycle().take(227*4).collect::<Vec<_>>().iter().scan(0, |state, &x| {*state += x; Some(*state)}).collect(),
+                execute: Box::new(|| { unsafe {div_slide_asm_r16()}}),
+                cache_attack_target: None
+            }),
+            SingleStepTarget::MulSlideR64 => Ok(SingleStepTargetDesc {
+                fn_vaddr: mul_slide_asm_r64 as u64,
+                // 1000 * 3 bytes
+                expected_offsets: (1..0xbb8).step_by(3).collect(),
+                execute: Box::new(|| { unsafe {mul_slide_asm_r64()}}),
+                cache_attack_target: None
+            }),
+
             SingleStepTarget::SimpleCacheTarget => {
               
                     let table_vaddr;
@@ -421,6 +554,21 @@ impl SingleStepTarget {
 global_asm!(include_str!("aligned_exec_fns.s"));
 extern "C" {
     fn nop_slide_asm();
+    /// NEMESIS
+    fn add_slide_asm();
+    fn rcl_slide_asm();
+    fn lar_slide_asm();
+    fn rdrand32_slide_asm();
+    fn rdrand_slide_asm();
+    fn div_slide_asm_r16();
+    fn div_slide_asm_r32();
+    fn div_slide_asm_r64();
+    fn div_slide1_asm_r64();
+    fn div_slide2_asm_r64();
+    fn div_slide3_asm_r64();
+    fn div_slide4_asm_r64();
+    fn mul_slide_asm_r64();
+
     fn simple_cache_target_lfence_asm(lookup_table_addr : u64, size : u64);
     fn simple_cache_target_asm(lookup_table_addr : u64, size : u64);
     fn eval_cache_target_asm(lookup_table_addr : u64, size : u64);
