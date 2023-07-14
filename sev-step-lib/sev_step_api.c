@@ -254,7 +254,7 @@ int usp_poll_event(usp_poll_api_ctx_t* ctx, int* got_event, usp_event_type_t* ev
     if( *event_type == SEV_STEP_EVENT ) {
         sev_step_event_t* step_event = (sev_step_event_t*)(*event);
         if( step_event->cache_attack_timings != NULL ) {
-            fprintf(stderr,"step event with timing data. %lu entries\n",step_event->cache_attack_data_len);
+            //fprintf(stderr,"step event with timing data. %lu entries\n",step_event->cache_attack_data_len);
             uint64_t cache_attack_timings_bytes = sizeof(uint64_t) * step_event->cache_attack_data_len;
             //the ptr is still from kernel space, we need to copy the data out of the event buffer anyways
             step_event->cache_attack_timings = malloc(cache_attack_timings_bytes);
@@ -264,7 +264,7 @@ int usp_poll_event(usp_poll_api_ctx_t* ctx, int* got_event, usp_event_type_t* ev
             event_buffer_offset += cache_attack_timings_bytes;
         }
         if( step_event->cache_attack_perf_values != NULL ) {
-            fprintf(stderr,"step event with perf data. %lu entries\n",step_event->cache_attack_data_len);
+            //fprintf(stderr,"step event with perf data. %lu entries\n",step_event->cache_attack_data_len);
             uint64_t cache_attack_perf_bytes = sizeof(uint64_t) * step_event->cache_attack_data_len;
             //the ptr is still from kernel space, we need to copy the data out of the event buffer anyways
             step_event->cache_attack_perf_values = malloc(cache_attack_perf_bytes);
