@@ -3,7 +3,7 @@ all: libsevstep.a end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  
 
 INCLUDES =   -I./external-dependencies/json-c-install/include -I./external-dependencies/curl/include 
 LIBDIRS = -L./build/libs -L./external-dependencies/curl-build/lib -L./external-dependencies/json-c-install/lib
-CFLAGS = -Wall -Wextra -fstack-protector -Wshadow -Werror -fno-omit-frame-pointer  -g  -fsanitize=address 
+CFLAGS = -Wall -Wextra -fstack-protector -Wshadow -Werror -fno-omit-frame-pointer  #-g  -fsanitize=address 
 
 
 SUBDIR = sev-step-lib end2end-tests/host-client example-apps
