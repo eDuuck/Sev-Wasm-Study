@@ -46,12 +46,12 @@ end2end-tests-hv-client: $(OBJ_FILE_DIR)/end2end-tests/host-client/main.o $(OBJ_
 	mkdir -p ${OUTPUT_LOG_DIR}
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/end2end-tests-hv-client $^ -lsevstep -lcurl -ljson-c -pthread -lm
 
-paper-experiments: $(OBJ_FILE_DIR)/end2end-tests/host-client/paper_experiments.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
+paper-experiments: $(OBJ_FILE_DIR)/example-apps/paper_experiments/paper_experiments.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	mkdir -p ${OUTPUT_LOG_DIR}
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/paper-experiments $^ -lsevstep -lcurl -ljson-c -pthread -lm
 
-nemesis-eval: $(OBJ_FILE_DIR)/end2end-tests/host-client/nemesis_main.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
+nemesis-eval: $(OBJ_FILE_DIR)/example-apps/nemesis_main.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	mkdir -p ${OUTPUT_LOG_DIR}
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/nemesis-eval $^ -lsevstep -lcurl -ljson-c -pthread -lm

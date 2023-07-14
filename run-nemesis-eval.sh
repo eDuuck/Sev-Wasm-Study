@@ -38,7 +38,7 @@ if [[ "$1" == "divs" ]]; then
 		fi
 		for i in $(seq 1 300)
 		do
-			sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./build/binaries/end2end-tests-hv-client $2 $j
+			sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./build/binaries/nemesis-eval $2 $j
 			if [ -e out.json ]; then
 			    sudo mv out.json "$cur_div/out-$(date +%s).json"
 			fi
@@ -57,7 +57,7 @@ elif [[ "$1" == "all" ]]; then
 		fi
 		for i in $(seq 1 100)
 		do
-			sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./build/binaries/end2end-tests-hv-client $2 $cur_num
+			sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./build/binaries/nemesis-eval $2 $cur_num
 			if [ -e out.json ]; then
 			    sudo mv out.json "$cur/out-$(date +%s).json"
 			fi
@@ -67,7 +67,7 @@ elif [[ "$1" == "all" ]]; then
 else
 	for i in $(seq 1 $1)
 	do
-		sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./build/binaries/end2end-tests-hv-client $3 $4
+		sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./build/binaries/nemesis-eval $3 $4
 		if [ -e out.json ]; then
 		    sudo mv out.json "$2/out-$(date +%s).json"
 		fi

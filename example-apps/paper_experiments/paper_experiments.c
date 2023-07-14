@@ -9,11 +9,11 @@
 
 #include "../../sev-step-lib/ansi-color-codes.h"
 #include "../../sev-step-lib/sev_step_api.h"
-#include "my-error-codes.h"
-#include "vm-server-client.h"
+#include "../../end2end-tests/host-client/my-error-codes.h"
+#include "../../end2end-tests/host-client/vm-server-client.h"
 
-#include "test_definitions.h"
-#include "cache_attack_helpers.h"
+#include "../../end2end-tests/host-client/test_definitions.h"
+#include "../../end2end-tests/host-client/cache_attack_helpers.h"
 #include "paper_experiments.h"
 
 /**

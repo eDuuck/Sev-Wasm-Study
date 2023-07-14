@@ -7,13 +7,14 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "../../sev-step-lib/ansi-color-codes.h"
-#include "../../sev-step-lib/sev_step_api.h"
-#include "my-error-codes.h"
-#include "vm-server-client.h"
+#include "../sev-step-lib/ansi-color-codes.h"
+#include "../sev-step-lib/sev_step_api.h"
+#include "../sev-step-lib/sev_step_print_macros.h"
+#include "../end2end-tests/host-client/my-error-codes.h"
+#include "../end2end-tests/host-client/vm-server-client.h"
 
-#include "test_definitions.h"
-#include "single_stepping_tests.h"
+#include "../end2end-tests/host-client/test_definitions.h"
+#include "../end2end-tests/host-client/single_stepping_tests.h"
 
 
 
@@ -103,8 +104,6 @@ int main(int argc, char** argv) {
 
     uint64_t timer_value = 0;
     victim_program_t VICTIM_PROGRAM_SLIDE = 0; // NOP is default
-    // if true, timer_value is valid
-    bool have_timer_value = false;
     if (argc != 3) {
         flf_printf("Usage: nemesis-main <timer value> <victim slide number>");
         return 1;
@@ -145,15 +144,11 @@ int main(int argc, char** argv) {
     };
 
     flf_printf("Running nemesis slide...\n");
-    if (HOST_CLIENT_ERROR == nemesis_slide.test_function(nemesis_slide.args) ) {
+    if (HOST_CLIENT_ERROR == nemesis_slide.test_function(nemesis_slide.name, nemesis_slide.args) ) {
             printf("\nnemesis slides" BRED "FAILED\n" reset);
             return 1;
     }
     flf_printf("SUCCESS\n");
-
-    end2end_test_t tests[] = {
-	    nemesis_slide,
-    };
 
     return 0;
 }

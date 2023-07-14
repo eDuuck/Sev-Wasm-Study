@@ -14,10 +14,10 @@
 #include "../../sev-step-lib/sev_step_print_macros.h"
 
 
-#include "my-error-codes.h"
-#include "vm-server-client.h"
-#include "helpers.h"
-#include "test_definitions.h"
+#include "../../end2end-tests/host-client/my-error-codes.h"
+#include "../../end2end-tests/host-client/vm-server-client.h"
+#include "../../end2end-tests/host-client/helpers.h"
+#include "../../end2end-tests/host-client/test_definitions.h"
 
 typedef struct
 {
