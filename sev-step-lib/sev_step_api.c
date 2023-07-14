@@ -533,6 +533,12 @@ int inject_nmi(usp_poll_api_ctx_t* ctx) {
 
 
 int sev_step_import_user_evs(usp_poll_api_ctx_t* ctx, import_user_eviction_set_param_t* params) {
+    for( uint64_t outer_idx=0; outer_idx < params->len; outer_idx++ ) {
+        uint64_t* inner_array = params->eviction_sets[outer_idx].eviction_sets;
+        for( uint64_t inner_idx=0; inner_idx < params->eviction_sets[outer_idx].eviction_sets_len;inner_idx++) {
+            memset((void*)inner_array[inner_idx], 0, 64);
+        }
+    }
     if(ioctl(ctx->kvm_fd, KVM_SET_STEP_IMPORT_USER_EVS, params) < 0) {
         perror("sev_step_import_user_evs: Error calling KVM_SET_STEP_IMPORT_USER_EVS ioctl");
         return SEV_STEP_ERR;
