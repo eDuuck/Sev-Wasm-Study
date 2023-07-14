@@ -25,6 +25,7 @@ perf_ctl_config_t host_os_l2_hit_from_l1_dc_miss = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name = "host_os_l2_hit_from_l1_dc_miss",
 };
 
 perf_ctl_config_t host_os_l2_miss_from_l1_dc_miss = {
@@ -37,6 +38,7 @@ perf_ctl_config_t host_os_l2_miss_from_l1_dc_miss = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name = "host_os_l2_miss_from_l1_dc_miss",
 };
 
 perf_ctl_config_t host_ost_l2_cache_miss_from_l2_cache_hwpf_1 = {
@@ -49,6 +51,8 @@ perf_ctl_config_t host_ost_l2_cache_miss_from_l2_cache_hwpf_1 = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name = "host_ost_l2_cache_miss_from_l2_cache_hwpf_1",
+
 };
 perf_ctl_config_t host_ost_l2_cache_miss_from_l2_cache_hwpf_2 = {
 	.EventSelect = 0x72,
@@ -60,6 +64,7 @@ perf_ctl_config_t host_ost_l2_cache_miss_from_l2_cache_hwpf_2 = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name = "host_ost_l2_cache_miss_from_l2_cache_hwpf_2",
 };
 
 perf_ctl_config_t host_os_l1d_fill_all = {
@@ -72,6 +77,7 @@ perf_ctl_config_t host_os_l1d_fill_all = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name ="host_os_l1d_fill_all",
 };
 
 perf_ctl_config_t host_os_l1d_fill_from_memory = {
@@ -84,6 +90,7 @@ perf_ctl_config_t host_os_l1d_fill_from_memory = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name = "host_os_l1d_fill_from_memory",
 };
 
 perf_ctl_config_t host_os_all_data_cache_accesses = {
@@ -96,6 +103,7 @@ perf_ctl_config_t host_os_all_data_cache_accesses = {
     .Int = 0x0,
     .Edge = 0x0,
     .OsUserMode = 0x2,
+    .descriptive_name = "host_os_all_data_cache_accesses",
 };
 
 int SHARED_MEM_BYTES = 20 * 4096;

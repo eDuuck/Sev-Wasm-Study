@@ -37,7 +37,10 @@ typedef struct {
 	uint64_t OsUserMode;
 	uint64_t UintMask;
 	uint64_t EventSelect; //12 bits in total split in [11:8] and [7:0]
+    char* descriptive_name;
 } perf_ctl_config_t;
+
+char* descriptive_perf_name(perf_ctl_config_t cfg);
 
 /// @brief L2 Cache Hit From L1 Data Cache Miss Event for Host in OS Mode
 extern perf_ctl_config_t host_os_l2_hit_from_l1_dc_miss;

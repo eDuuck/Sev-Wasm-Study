@@ -363,12 +363,13 @@ int test_do_cache_attack_l2(char* fp,void* void_args) {
         .table_bytes = victim_program_data->cache_attack_data->lookup_table_bytes,
         },
     };
+    perf_ctl_config_t perf_counter = host_os_l2_miss_from_l1_dc_miss;
     import_user_eviction_set_param_t api_params = {
         .attack_targets = luts,
         .eviction_sets = evs,
         .len = 1,
         .way_count = way_count,
-        .cache_attack_perf = host_os_l2_hit_from_l1_dc_miss,
+        .cache_attack_perf = perf_counter,
     };
     printf("%s%s:%d Got %lu lut and %lu eviction sets with %lu entries each\n",
         fp,__FILE__,__LINE__,api_params.len,api_params.eviction_sets->eviction_sets_len,
@@ -387,7 +388,7 @@ int test_do_cache_attack_l2(char* fp,void* void_args) {
     cache_attack_log = cache_attack_log_new_log(
         api_params.attack_targets,
         api_params.len,
-        "perf name todo",
+        perf_counter.descriptive_name,
         way_count
     );
     if( cache_attack_log == NULL ) {
