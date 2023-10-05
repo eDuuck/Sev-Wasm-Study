@@ -130,9 +130,10 @@ where
 - `repetitions` is the number of times the experiment is repeated
 - `<path>` is the path to the folder where the data should be stored
 - `<experiment number>` selects one of the following instructions benchmarks:
+
 | experiment number  | benchmarked instruction |
-|---|---|
-| 0  | nop  |
+|----|---|
+|  0 | nop  |
 |  1 |  add |
 |  2 |  rdrand64 |
 |  3 |  rdrand32 |
