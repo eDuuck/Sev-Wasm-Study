@@ -3,6 +3,8 @@
 This repo contains the userspace library of the SEV STEP framework. To use it, you also need to run
 the corresponding kernel. If you have not cloned this repo as a submodule of the `sev-step-meta` repo already, check out the manual there to setup the correct environment.
 
+There also is an [experimental version](https://github.com/sev-step/sev-step-rust-userland) of this library that tries to make single-stepping easier by providing an API with high level abstractions. 
+
 ## Features
 
 - **Interactive Page Granular Tracking:** Remove access rights from VM pages and observe the corresponding page faults. Upon a page fault, the VM is halted and the user space code is notified via a shared memory channel. The VM remains halted until the user space code finished processing the event. This allows the user space code to dynamically react to events, enabling is to implement complex attack logic.
@@ -15,7 +17,7 @@ the corresponding kernel. If you have not cloned this repo as a submodule of the
 This repo has three main components
 
 - `sev-step-lib`  : The actual library with the features described above
-- `end2end-tests` : This contains a test suite, to verify that the different components of the library are working correctly on your system. It has two components: a client and a server. The server is intended to be executed inside as SEV (SNP) VM while the client is intended to run on the host system. The client uses the server to setup scenarios. For example it can request two pages the be written to in an alternating manner, which can then be used to verify the pagefault tracking functionality. The different tests are also a great starting place to explore the functionality of the library.
+- `end2end-tests` : This contains a test suite, to verify that the different components of the library are working correctly on your system. It has two components: a client and a server. The server is intended to be executed inside as SEV (SNP) VM while the client is intended to run on the host system. The client uses the server to setup scenarios. For example it can request two pages to be written to in an alternating manner, which can then be used to verify the pagefault tracking functionality. The different tests are also a great starting place to explore the functionality of the library.
 - `example-apps`: Code for the following tools
   - `kaslr-attack`: Break KASLR by injecting an NMI and observing pagefaults as presented in [1].
   - `nemesis_main.c`: Binary for the nemesis experiments from the paper.
@@ -25,6 +27,8 @@ This repo has three main components
 
 1. Issue `make dependencies` to pull and build any external dependencies used by this code. You only need to do this once.
 2. Issue `make` to build all binaries and the sev step library
+
+The SEV-Step library requires access to the header file for the IOCTL API exposed by the kernel part. If you build the library as part of the meta repository, this is already pre-configured. Otherwise, you need to edit the `environment.env` file to point the build system to the kernel's include directory.
 
 After building, the binaries are in `sev-step-userland/build/binaries` (except for the server part of the end2end test, which is in `build/rust/target/release/`) and the library is in `sev-step-userland/build/libs`.
 
