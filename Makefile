@@ -1,13 +1,15 @@
 all: libsevstep.a end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 .PHONY: clean clean-apps dependencies end2end-tests-vm-server end2end-tests-hv-client libsevstep.a kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 
+include environment.env
+
 ifndef KERNEL_HEADER_PATH
 $(error Missing KERNEL_HEADER_PATH env var. Did you source environment.env ? Also check the comments in the file on how to set this variable)
 endif
 
 INCLUDES =   -I./external-dependencies/json-c-install/include -I./external-dependencies/curl/include  -I${KERNEL_HEADER_PATH}
 LIBDIRS = -L./build/libs -L./external-dependencies/curl-build/lib -L./external-dependencies/json-c-install/lib
-CFLAGS = -Wall -Wextra -fstack-protector -Wshadow -Werror -fno-omit-frame-pointer  #-g  -fsanitize=address 
+CFLAGS = -Wall -Wextra -fstack-protector -Wshadow -fno-omit-frame-pointer #-Werror -Wno-unused-variable #-g  -fsanitize=address 
 
 
 SUBDIR = sev-step-lib end2end-tests/host-client example-apps
@@ -72,6 +74,14 @@ libsevstep.a: $(OBJ_FILE_DIR)/sev-step-lib/sev_step_api.o $(OBJ_FILE_DIR)/sev-st
 sev-step-tests: $(OBJ_FILE_DIR)/sev-step-lib/sev_step_tests.o
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/sev-step-tests $^ -lsevstep -pthread -ljson-c -lm -lcurl
+
+libsevstep.a: $(OBJ_FILE_DIR)/sev-step-lib/sev_step_api.o $(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_routines.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_eviction_set_builders.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_pagemap_parser.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_cache_attack_log.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_http_client.o
+	mkdir -p $(OUTPUT_LIB_DIR)
+	ar rcs $(OUTPUT_LIB_DIR)/libsevstep.a $^
+
+single-step-measure: $(OBJ_FILE_DIR)/single-step-measure/single-step-measure.o $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/single-step-measure $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
 clean-apps:
 	rm -f libsevstep.a

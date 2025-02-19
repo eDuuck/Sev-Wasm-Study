@@ -1,14 +1,23 @@
 #!/bin/bash
 
-if [ "$#" -ne 2 ]; then
+if [ -f ./environment.env ]; then
+	source ./environment.env
+fi
+
+if [[ -z "${ISOL_CPU_NUM}" || -z "${ISOL_CPU_FREQ}"] && ["$#" -ne 2 ]]; then
 	echo "This script pins the victims qemu vcpu thread to the given cpu core and also fixates the clock frequency on that core."
 	echo "If your system is configured to run at a fixed frequency and does thus not support cpufreq-set, pass \"NULL\" for the frequency"
 	echo "It is assumed that only one instance of qemu-system-x86_64 is running"
-	echo "Usage: post-startup-script <cpu to pin to> <{target cpu freq,NULL}>"
+	echo ""
+	echo "Usage: Either set ISOL_CPU_NUM and ISOL_CPU_FREQ in environment.env or pass them as arguments"
+	echo "       post-startup-script <cpu to pin to> <{target cpu freq,NULL}>"
+	echo ""
 	echo "On most machines the lowest frequency in /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies works well"
 	exit
 fi
 
+ISOL_CPU_NUM="${1:-$ISOL_CPU_NUM}"
+ISOL_CPU_FREQ="${2:-$ISOL_CPU_FREQ}"
 
 #
 # Check kvm module config
@@ -47,9 +56,11 @@ echo "Disabled prefetch"
 # Pin frequency and vm thread
 #
 
-CPU=$1
-FREQ=$2
-sudo qemu-affinity $(pidof qemu-system-x86_64 ) -k $CPU || exit 1
+echo $ISOL_CPU_NUM
+echo $ISOL_CPU_FREQ
+exit 1
+
+sudo qemu-affinity $(pidof qemu-system-x86_64 ) -k $ISOL_CPU_NUM || exit 1
 echo "Pinned vcpu thread to CPU $CPU"
 
 if [[ ${FREQ} == "NULL" ]]; then
