@@ -1,19 +1,19 @@
 #!/bin/bash
 
 if [ -f ./environment.env ]; then
-	source ./environment.env
+  source ./environment.env
 fi
 
 if [[ -z "${ISOL_CPU_NUM}" || -z "${ISOL_CPU_FREQ}"] && ["$#" -ne 2 ]]; then
-	echo "This script pins the victims qemu vcpu thread to the given cpu core and also fixates the clock frequency on that core."
-	echo "If your system is configured to run at a fixed frequency and does thus not support cpufreq-set, pass \"NULL\" for the frequency"
-	echo "It is assumed that only one instance of qemu-system-x86_64 is running"
-	echo ""
-	echo "Usage: Either set ISOL_CPU_NUM and ISOL_CPU_FREQ in environment.env or pass them as arguments"
-	echo "       post-startup-script <cpu to pin to> <{target cpu freq,NULL}>"
-	echo ""
-	echo "On most machines the lowest frequency in /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies works well"
-	exit
+  echo "This script pins the victims qemu vcpu thread to the given cpu core and also fixates the clock frequency on that core."
+  echo "If your system is configured to run at a fixed frequency and does thus not support cpufreq-set, pass \"NULL\" for the frequency"
+  echo "It is assumed that only one instance of qemu-system-x86_64 is running"
+  echo ""
+  echo "Usage: Either set ISOL_CPU_NUM and ISOL_CPU_FREQ in environment.env or pass them as arguments"
+  echo "       post-startup-script <cpu to pin to> <{target cpu freq,NULL}>"
+  echo ""
+  echo "On most machines the lowest frequency in /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies works well"
+  exit
 fi
 
 ISOL_CPU_NUM="${1:-$ISOL_CPU_NUM}"
@@ -23,24 +23,24 @@ ISOL_CPU_FREQ="${2:-$ISOL_CPU_FREQ}"
 # Check kvm module config
 #
 if [[ "$(cat /sys/module/kvm/parameters/tdp_mmu)" == "Y" ]]; then
-    echo 'Error: tdp_mmu param of kvm module must be set to "N"'
-    exit 1
+  echo 'Error: tdp_mmu param of kvm module must be set to "N"'
+  exit 1
 fi
 
 #kvm_amd sev-snp=1 sev=1 sev-es=1
 if [[ "$(cat /sys/module/kvm_amd/parameters/sev_snp)" != "Y" ]]; then
-    echo 'Error: sev_snp param of kvm_amd module must be set to "Y"'
-    exit 1
+  echo 'Error: sev_snp param of kvm_amd module must be set to "Y"'
+  exit 1
 fi
 
 if [[ "$(cat /sys/module/kvm_amd/parameters/sev)" != "Y" ]]; then
-    echo 'Error: sev param of kvm_amd module must be set to "Y"'
-    exit 1
+  echo 'Error: sev param of kvm_amd module must be set to "Y"'
+  exit 1
 fi
 
 if [[ "$(cat /sys/module/kvm_amd/parameters/sev_es)" != "Y" ]]; then
-    echo 'Error: sev_es param of kvm_amd module must be set to "Y"'
-    exit 1
+  echo 'Error: sev_es param of kvm_amd module must be set to "Y"'
+  exit 1
 fi
 
 #
@@ -48,24 +48,20 @@ fi
 #
 
 sudo modprobe msr
-sudo wrmsr -a 0xc001102b  0x00000000200fcc16
-sudo wrmsr -a  0xc0011022 0xc000000002512000
+sudo wrmsr -a 0xc001102b 0x00000000200fcc16
+sudo wrmsr -a 0xc0011022 0xc000000002512000
 echo "Disabled prefetch"
 
 #
 # Pin frequency and vm thread
 #
 
-echo $ISOL_CPU_NUM
-echo $ISOL_CPU_FREQ
-exit 1
+sudo qemu-affinity $(pidof qemu-system-x86_64) -k $ISOL_CPU_NUM || exit 1
+echo "Pinned vcpu thread to CPU $ISOL_CPU_NUM"
 
-sudo qemu-affinity $(pidof qemu-system-x86_64 ) -k $ISOL_CPU_NUM || exit 1
-echo "Pinned vcpu thread to CPU $CPU"
-
-if [[ ${FREQ} == "NULL" ]]; then
-	echo "FREQ=NULL provied, assuming cpu frequency is already fixed"
+if [[ ${ISOL_CPU_NUM} == "NULL" ]]; then
+  echo "FREQ=NULL provied, assuming cpu frequency is already fixed"
 else
-	sudo cpufreq-set -r -c $CPU -g performance -u "${FREQ}" -d "${FREQ}" || exit 1
-	echo "Set frequency"
+  sudo cpufreq-set -r -c $ISOL_CPU_NUM -g performance -u "${ISOL_CPU_FREQ}" -d "${ISOL_CPU_FREQ}" || exit 1
+  echo "Set frequency to ${ISOL_CPU_FREQ}"
 fi
