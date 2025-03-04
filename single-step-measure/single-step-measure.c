@@ -12,6 +12,8 @@
 #include "errorCodes.h"
 
 #define stepAmount 10000
+#define pageTracks 1000
+
 /* CODING DAIRY
 usp = user space polling
 First the API needs to be initialized, this is done through the usp_new_ctx function.
@@ -24,6 +26,10 @@ typedef struct
     char *format_prefix;
     bool debug_enabled;
 } single_step_measure_args;
+typedef struct {
+    uint64_t gpa1;
+    uint64_t gpa2;
+} pagetrack_gpas_t;
 
 void find_timer_value()
 {
@@ -45,7 +51,7 @@ int testfunc(single_step_measure_args *args)
     api_open = true;
     printf("%sAPI initialization done!\n", args->format_prefix);
     char input;
-    int* res;
+    int *res;
     usp_event_type_t event_type;
     void *event_buffer;
     do
@@ -63,10 +69,10 @@ int testfunc(single_step_measure_args *args)
             }
             break;
         case 't':
-            printf("%d",track_all_pages(&ctx,KVM_PAGE_TRACK_ACCESS));
+            printf("%d", track_all_pages(&ctx, KVM_PAGE_TRACK_ACCESS));
             break;
         case 'p':
-            usp_poll_event(&ctx,res,&event_type,&event_buffer);
+            usp_poll_event(&ctx, res, &event_type, &event_buffer);
             break;
         default:
             printf("\n");
@@ -87,7 +93,74 @@ cleanup:
             printf("%sAPI closed!\n", args->format_prefix);
         }
     }
-    return 1;
+    return res;
+}
+
+int page_track(single_step_measure_args *args)
+{
+    usp_poll_api_ctx_t ctx;
+
+    bool api_open = false;
+    int res = HOST_CLIENT_SUCCESS;
+
+    printf("%sInitializing API...\n", args->format_prefix);
+    if (SEV_STEP_ERR == usp_new_ctx(&ctx, args->debug_enabled))
+    {
+        printf("%s" BRED "usp_new_ctx failed." reset " Check dmesg for more information\n", args->format_prefix);
+        return HOST_CLIENT_ERROR;
+    }
+    printf("%sAPI initialization done!\n", args->format_prefix);
+    api_open = true;
+    //
+    // Try tracking all pages to infer access pattern.
+    // modes = KVM_PAGE_TRACK_ACCESS or KVM_PAGE_TRACK_WRITE or KVM_PAGE_TRACK_EXEC
+    int track_mode = KVM_PAGE_TRACK_EXEC;
+
+    printf("%sTracking all gpa with mode %s\n",args->format_prefix,tracking_mode_to_string(track_mode));
+    track_all_pages(&ctx,track_mode);
+
+    usp_event_type_t event_type;
+    void* event_buffer;
+    int input;
+    //Playing around to see if we can print out the measured pages.
+    for(int event_idx = 0; event_idx < pageTracks; event_idx++){
+        usp_block_until_event(&ctx, &event_type, &event_buffer);
+        if( event_type != PAGE_FAULT_EVENT ) {
+            printf("Didn't get a pagefault, event type is %d\n", (int)event_type);
+            goto cleanup;
+        }
+        printf("%sGot a pagefault!\n", args->format_prefix);
+        usp_page_fault_event_t* pf_event = (usp_page_fault_event_t*)event_buffer;
+        printf("%sPagefault Event: {GPA:0x%lx}\n",args->format_prefix,pf_event->faulted_gpa);
+        
+        //Track all pages except the one we just encountered so VM can continue execution.
+        //track_all_pages(&ctx, track_mode);
+        untrack_page(&ctx,pf_event->faulted_gpa);
+        
+        //Waiting for user to allow next page read.
+        if(input != 10){
+            printf("%sPaused until user input any number. Enter \"10\" to proceed with execution of rest %d events.", args->format_prefix, pageTracks - event_idx);
+            scanf("%d", &input);
+        }
+        //Clearing event to resume VM execution.
+        printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
+        usp_ack_event(&ctx);
+        free_usp_event(event_type, event_buffer);
+    }
+
+cleanup:
+    if (api_open)
+    {
+        if (SEV_STEP_ERR == usp_close_ctx(&ctx))
+        {
+            printf("%s" BRED "usp_close_ctx failed." reset " Check dmesg for more information\n", args->format_prefix);
+        }
+        else
+        {
+            printf("%sAPI closed!\n", args->format_prefix);
+        }
+    }
+    return res;
 }
 
 int single_step_measure(single_step_measure_args *args)
@@ -207,8 +280,17 @@ cleanup:
             printf("%sAPI closed!\n", args->format_prefix);
         }
     }
-    return 1;
+    return res;
 }
+
+enum func
+{
+    test,
+    single_step_func,
+    page_tracking,
+    find_time_val,
+    none
+};
 
 int main(int argc, char **argv)
 {
@@ -216,9 +298,8 @@ int main(int argc, char **argv)
     int apic_timer;
     int opt;
     bool debug_enabled = false;
-    bool run_testfunc = false;
-
-    while ((opt = getopt(argc, argv, "t:dfhx")) != -1)
+    enum func function = none;
+    while ((opt = getopt(argc, argv, "t:dfhxp")) != -1)
     {
         switch (opt)
         {
@@ -233,39 +314,50 @@ int main(int argc, char **argv)
                 exit(EXIT_FAILURE);
             }
             break;
+        case 'f':
+            function = find_time_val;
+            break;
+        case 'x':
+            function = test;
+            break;
+            break;
+        case 'p':
+            function = page_tracking;
+            break;
         case 'h':
             printf("Usage: %s [-t timer_value]\n", argv[0]);
             exit(EXIT_SUCCESS);
-        case 'f':
-            find_timer_value();
-        case 'x':
-            run_testfunc = true;
-            break;
         default:
             printf("Usage: %s [-t timer_value]\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     }
-    if (apic_timer == 0 && !run_testfunc)
+    if (apic_timer == 0 && function == none)
     {
         printf("%sNo timer value provided.\n", format_prefix);
         printf("%sProvide with [-t timer_value] or set option -f to find value dynamically.\n", format_prefix);
         exit(EXIT_FAILURE);
     }
-
     single_step_measure_args args = {
         .apic_timer = apic_timer,
         .format_prefix = format_prefix,
         .debug_enabled = debug_enabled};
 
-    printf("Starting single step measure\n");
-    if (run_testfunc)
+    
+    switch (function)
     {
+    case test:
         testfunc(&args);
-    }
-    else
-    {
+        break;
+    case page_tracking:
+        page_track(&args);
+        break;
+    case single_step_func:
+        printf("Starting single step measure\n");
         single_step_measure(&args);
+        break;
+    default:
+        break;
     }
     return 0;
 }
