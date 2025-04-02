@@ -92,9 +92,12 @@ int main(int argc, char **argv)
     if(!en_single_step(&args))perror("Init of single-step failed.");
 
 
-    pthread_t measure_thread;
-    pthread_create(&measure_thread,NULL,meas_thread,NULL);
-    sendto(socket_fd, text, 10, 0, (struct sockaddr *)NULL, addrlen);
+    //pthread_t measure_thread;
+    //pthread_create(&measure_thread,NULL,meas_thread,NULL);
+
+    pthread_t monitor_thread;
+    pthread_create(&monitor_thread,NULL,page_track,NULL);
+    sendto(socket_fd, "pingpong", 10, 0, (struct sockaddr *)NULL, addrlen);
     
     start_meas();
 
@@ -107,6 +110,7 @@ int main(int argc, char **argv)
             break;
         usleep(1);
     }
+
     if (!(errno == EAGAIN || errno == EWOULDBLOCK)) {
         printf("Got answer from server: %s \n",UDP_buffer);
     }
@@ -115,19 +119,20 @@ int main(int argc, char **argv)
     printf("Waiting for thread to finish.");
 
     
-    pthread_join(measure_thread,NULL);
+    pthread_join(monitor_thread,NULL);
     close_CTX();
     printf("Thread finished. Attempting to contact server.\n");
     sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
     rec_mes();
     if(strcmp(UDP_buffer,"pong")!=0){
         printf("Didn't get correct response back from server. Oh no.");
+        for(int i = 0; i < 100; i++){
+            if(close_CTX())
+                break;
+            usleep(1);
+        }
     }
-    for(int i = 0; i < 100; i++){
-        if(close_CTX())
-            break;
-        usleep(1);
-    }
+    
     //pthread_exit(NULL);
     return 0;
 }

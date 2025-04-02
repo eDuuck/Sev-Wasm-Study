@@ -75,7 +75,7 @@ int init_CTX(single_step_measure_args *arguments)
         return HOST_CLIENT_ERROR;
     }
 
-    // Weird code needed for
+    // Weird code needed so VM doesn't freeze.
     track_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
     untrack_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
     usp_ack_event(&ctx);
@@ -180,7 +180,7 @@ void *meas_thread(){
         }
 
         counted_inst[elapsedEvents] = step_event->counted_instructions;
-        latency_vals[elapsedEvents] = (uint)step_event->tsc_latency;
+        latency_vals[elapsedEvents] = (int)step_event->tsc_latency;
         if (args->print_meas)
             printf("%sSending ack for event_idx %d\n", args->format_prefix, elapsedEvents);
         elapsedEvents++;
@@ -203,3 +203,46 @@ void *meas_thread(){
     return NULL;
 }
 
+void *page_track()
+{
+    // Try tracking all pages to infer access pattern.
+    // modes = KVM_PAGE_TRACK_ACCESS or KVM_PAGE_TRACK_WRITE or KVM_PAGE_TRACK_EXEC
+    int track_mode = KVM_PAGE_TRACK_WRITE;
+
+    printf("%sTracking all gpa with mode %s\n", args->format_prefix, tracking_mode_to_string(track_mode));
+    track_all_pages(&ctx, track_mode);
+
+    usp_event_type_t event_type;
+    void *event_buffer;
+    int tracked_pages = 0;
+
+    while(!atomic_load(&running)); //Wait here until main thread inform to start measurement.
+    atomic_exchange(&measure_active,true);
+    // Playing around to see if we can print out the measured pages.
+    while (tracked_pages < PAGE_TRACKS && atomic_load(&running))
+    {
+        usp_block_until_event(&ctx, &event_type, &event_buffer);
+        if (event_type != PAGE_FAULT_EVENT)
+        {
+            printf("Didn't get a pagefault, event type is %d\n", (int)event_type);
+            break;
+        }
+        printf("%sGot a pagefault!\n", args->format_prefix);
+        usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
+        printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
+
+        // Track all pages except the one we just encountered so VM can continue execution.
+        track_all_pages(&ctx, track_mode);
+        untrack_page(&ctx, pf_event->faulted_gpa, track_mode);
+
+        tracked_pages++;
+
+        // Clearing event to resume VM execution.
+        //printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
+        usp_ack_event(&ctx);
+        free_usp_event(event_type, event_buffer);
+    }
+    atomic_exchange(&measure_active,false);
+    untrack_all_pages(&ctx,track_mode);
+    return NULL;
+}

@@ -14,7 +14,7 @@
 #include "errorCodes.h"
 #include "common_structs.h"
 
-/**
+
 typedef struct
 {
     int apic_timer;
@@ -26,7 +26,7 @@ typedef struct
 {
     uint64_t gpa1;
     uint64_t gpa2;
-} pagetrack_gpas_t; */
+} pagetrack_gpas_t; 
 
 void find_timer_value()
 {

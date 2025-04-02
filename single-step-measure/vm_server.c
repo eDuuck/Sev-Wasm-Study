@@ -48,7 +48,10 @@ int main()
     server_address.sin_port = htons(PORT); // htons() switches from little-endian to big-endian used in network.
 
     bind(listen_fd, (struct sockaddr *)&server_address, sizeof(server_address));
-    int a;
+    volatile int a;
+
+    void *page1 = allocate_pages(PAGE_SIZE);
+    void *page2 = allocate_pages(PAGE_SIZE);
 
     printf("Listening to port %d...\n", PORT);
     while (1)
@@ -62,27 +65,53 @@ int main()
             }
             snprintf(buffer, BUFFER_SIZE, "%d", a);
             sendto(listen_fd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_address, addrlen);
-        }
-        if(strcmp(buffer,"add")==0){
+        }else if(strcmp(buffer,"add")==0){
             a = 5;
             for(volatile int i = 0; i < 100; i++){
                 a += 5;
             }
             snprintf(buffer, BUFFER_SIZE, "%d", a);
             sendto(listen_fd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_address, addrlen);
-        }
-        if(strcmp(buffer,"add")==0){
+        }else if(strcmp(buffer,"add")==0){
             a = 5;
             for(volatile int i = 0; i < 100; i++){
                 a += 5;
             }
-        }
-        if(strcmp(buffer,"ping")==0){
+        }else if(strcmp(buffer,"ping")==0){
             sendto(listen_fd, "pong", 10, 0, (struct sockaddr *)&client_address, addrlen);
+        }else if(strcmp(buffer, "pingpong")){
+            for(int i = 0; i < 100; i++){
+                *((volatile int *)page1) = 42;
+                *((volatile int *)page2) = 42;
+            }
+            sendto(listen_fd, "done", 10, 0, (struct sockaddr *)&client_address, addrlen);
+            
         }
-        
-        
-        if(strcmp(buffer,"stop")==0 || strcmp(buffer,"exit")==0) break;
+        if(strcmp(buffer,"pingpong add")==0){
+            for(int i = 0; i < 10;i++){
+                *((volatile int *)page1) = 42;
+                *((volatile int *)page2) = 42;
+            }
+            for(int i = 0; i < 100; i++){
+                a += 5;
+            }
+            for(int i = 0; i < 10;i++){
+                *((volatile int *)page1) = 42;
+                *((volatile int *)page2) = 42;
+            }
+        }else if(strcmp(buffer,"pingpong mul")==0){
+            for(int i = 0; i < 10;i++){
+                *((volatile int *)page1) = 42;
+                *((volatile int *)page2) = 42;
+            }
+            for(int i = 0; i < 100; i++){
+                a *= 5;
+            }
+            for(int i = 0; i < 10;i++){
+                *((volatile int *)page1) = 42;
+                *((volatile int *)page2) = 42;
+            }
+        }else if(strcmp(buffer,"stop")==0 || strcmp(buffer,"exit")==0) break;
         /*
         sendto(listen_fd, message, MAXLINE, 0, (struct sockaddr *)&client_address, sizeof(client_address));
         char *clientAddr = inet_ntoa(client_address.sin_addr);

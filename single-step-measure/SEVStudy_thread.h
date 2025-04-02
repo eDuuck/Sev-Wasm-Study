@@ -10,6 +10,8 @@ bool is_measure_active();
 
 void *mock_thread();
 void *meas_thread();
+void *page_track();
+
 
 void start_meas();
 void stop_meas();
