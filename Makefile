@@ -1,4 +1,4 @@
-all: libsevstep.a end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments nemesis-eval
+all: libsevstep.a single-step-measure#end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 .PHONY: clean clean-apps dependencies end2end-tests-vm-server end2end-tests-hv-client libsevstep.a kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 
 include environment.env
@@ -75,13 +75,18 @@ sev-step-tests: $(OBJ_FILE_DIR)/sev-step-lib/sev_step_tests.o
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/sev-step-tests $^ -lsevstep -pthread -ljson-c -lm -lcurl
 
-libsevstep.a: $(OBJ_FILE_DIR)/sev-step-lib/sev_step_api.o $(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_routines.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_eviction_set_builders.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_pagemap_parser.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_cache_attack_log.o $(OBJ_FILE_DIR)/sev-step-lib/sev_step_http_client.o
-	mkdir -p $(OUTPUT_LIB_DIR)
-	ar rcs $(OUTPUT_LIB_DIR)/libsevstep.a $^
-
 single-step-measure: $(OBJ_FILE_DIR)/single-step-measure/single-step-measure.o $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/single-step-measure $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
+testing: $(OBJ_FILE_DIR)/single-step-measure/main.o $(OBJ_FILE_DIR)/single-step-measure/SEVStudy_thread.o  $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/testing $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
+server: $(OBJ_FILE_DIR)/single-step-measure/vm_server.o 
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/vm-serv $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
 
 clean-apps:
 	rm -f libsevstep.a

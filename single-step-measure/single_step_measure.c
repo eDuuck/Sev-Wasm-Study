@@ -6,30 +6,27 @@
 #include <errno.h>
 #include <limits.h>
 #include <getopt.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include "../sev-step-lib/ansi-color-codes.h"
 #include "../sev-step-lib/sev_step_api.h"
 #include "errorCodes.h"
+#include "common_structs.h"
 
-#define stepAmount 10000
-#define pageTracks 1000
-
-/* CODING DAIRY
-usp = user space polling
-First the API needs to be initialized, this is done through the usp_new_ctx function.
-Input parsing is done, moving single-stepping into a function instead of staying in main funciton.
-TODO: Pause the VM to ensure functionality.
-*/
+/**
 typedef struct
 {
     int apic_timer;
     char *format_prefix;
     bool debug_enabled;
+    bool print_meas;
 } single_step_measure_args;
-typedef struct {
+typedef struct
+{
     uint64_t gpa1;
     uint64_t gpa2;
-} pagetrack_gpas_t;
+} pagetrack_gpas_t; */
 
 void find_timer_value()
 {
@@ -51,7 +48,7 @@ int testfunc(single_step_measure_args *args)
     api_open = true;
     printf("%sAPI initialization done!\n", args->format_prefix);
     char input;
-    int *res;
+    int res;
     usp_event_type_t event_type;
     void *event_buffer;
     do
@@ -72,7 +69,7 @@ int testfunc(single_step_measure_args *args)
             printf("%d", track_all_pages(&ctx, KVM_PAGE_TRACK_ACCESS));
             break;
         case 'p':
-            usp_poll_event(&ctx, res, &event_type, &event_buffer);
+            usp_poll_event(&ctx, &res, &event_type, &event_buffer);
             break;
         default:
             printf("\n");
@@ -116,33 +113,36 @@ int page_track(single_step_measure_args *args)
     // modes = KVM_PAGE_TRACK_ACCESS or KVM_PAGE_TRACK_WRITE or KVM_PAGE_TRACK_EXEC
     int track_mode = KVM_PAGE_TRACK_EXEC;
 
-    printf("%sTracking all gpa with mode %s\n",args->format_prefix,tracking_mode_to_string(track_mode));
-    track_all_pages(&ctx,track_mode);
+    printf("%sTracking all gpa with mode %s\n", args->format_prefix, tracking_mode_to_string(track_mode));
+    track_all_pages(&ctx, track_mode);
 
     usp_event_type_t event_type;
-    void* event_buffer;
+    void *event_buffer;
     int input;
-    //Playing around to see if we can print out the measured pages.
-    for(int event_idx = 0; event_idx < pageTracks; event_idx++){
+    // Playing around to see if we can print out the measured pages.
+    for (int event_idx = 0; event_idx < PAGE_TRACKS; event_idx++)
+    {
         usp_block_until_event(&ctx, &event_type, &event_buffer);
-        if( event_type != PAGE_FAULT_EVENT ) {
+        if (event_type != PAGE_FAULT_EVENT)
+        {
             printf("Didn't get a pagefault, event type is %d\n", (int)event_type);
             goto cleanup;
         }
         printf("%sGot a pagefault!\n", args->format_prefix);
-        usp_page_fault_event_t* pf_event = (usp_page_fault_event_t*)event_buffer;
-        printf("%sPagefault Event: {GPA:0x%lx}\n",args->format_prefix,pf_event->faulted_gpa);
-        
-        //Track all pages except the one we just encountered so VM can continue execution.
-        //track_all_pages(&ctx, track_mode);
-        untrack_page(&ctx,pf_event->faulted_gpa);
-        
-        //Waiting for user to allow next page read.
-        if(input != 10){
+        usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
+        printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
+
+        // Track all pages except the one we just encountered so VM can continue execution.
+        // track_all_pages(&ctx, track_mode);
+        untrack_page(&ctx, pf_event->faulted_gpa, track_mode);
+
+        // Waiting for user to allow next page read.
+        if (input != 10)
+        {
             printf("%sPaused until user input any number. Enter \"10\" to proceed with execution of rest %d events.", args->format_prefix, pageTracks - event_idx);
             scanf("%d", &input);
         }
-        //Clearing event to resume VM execution.
+        // Clearing event to resume VM execution.
         printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
         usp_ack_event(&ctx);
         free_usp_event(event_type, event_buffer);
@@ -179,6 +179,13 @@ int single_step_measure(single_step_measure_args *args)
     }
     printf("%sAPI initialization done!\n", args->format_prefix);
     api_open = true;
+
+    track_all_pages(&ctx,KVM_PAGE_TRACK_EXEC);
+    untrack_all_pages(&ctx,KVM_PAGE_TRACK_EXEC);
+    usp_ack_event(&ctx);
+    usp_close_ctx(&ctx);
+    usp_new_ctx(&ctx, args->debug_enabled);
+    
     printf("%sEnabling  single stepping\n", args->format_prefix);
 
     if (SEV_STEP_OK != enable_single_stepping(&ctx, args->apic_timer, NULL, 0))
@@ -191,15 +198,23 @@ int single_step_measure(single_step_measure_args *args)
     usp_event_type_t event_type;
     void *event_buffer;
 
+    FILE *fptr;
+
     //
     // Main Event Loop. Simply log @args->want_steps many steps before disabling single stepping again
     //
 
+    uint64_t *latency_vals = calloc(sizeof(uint64_t),STEP_AMOUNT);
+    int *step_type = calloc(sizeof(int),STEP_AMOUNT);
     bool encountered_multistep = false;
+    time_t startTime = clock();
+    double elapsedTime;
+    int elapsedEvents = 0;
 
-    for (int current_event_idx = 0; current_event_idx < stepAmount; current_event_idx++)
+    while (elapsedEvents < STEP_AMOUNT && elapsedTime < MAX_RUN_TIME)
     {
-        printf("%sWaiting next event, event_idx=%d\n", args->format_prefix, current_event_idx);
+        if (args->print_meas)
+            ("%sWaiting next event, event_idx=%d\n", args->format_prefix, elapsedEvents);
         if (SEV_STEP_ERR == usp_block_until_event(&ctx, &event_type, &event_buffer))
         {
             printf("%susp_block_until_event" BRED " FAILED\n" reset, args->format_prefix);
@@ -215,29 +230,48 @@ int single_step_measure(single_step_measure_args *args)
         }
 
         sev_step_event_t *step_event = (sev_step_event_t *)event_buffer;
-        print_single_step_event(args->format_prefix, step_event);
-
+        if (args->print_meas)
+            print_single_step_event(args->format_prefix, step_event);
         switch (step_event->counted_instructions)
         {
         case 0:
-            printf("%sZero steps\n", args->format_prefix);
+            if (args->print_meas)
+                printf("%sZero steps\n", args->format_prefix);
             break;
         case 1:
-            printf("%sSingle step\n", args->format_prefix);
+            if (args->print_meas)
+                printf("%sSingle step\n", args->format_prefix);
             break;
         default:
-            printf("%sMulti step\n", args->format_prefix);
+            if (args->print_meas)
+                printf("%sMulti step\n", args->format_prefix);
             if (!encountered_multistep)
             {
                 encountered_multistep = true;
             }
             break;
         }
-
-        printf("%sSending ack for event_idx %d\n", args->format_prefix, current_event_idx);
+        step_type[elapsedEvents] = step_event->counted_instructions;
+        elapsedTime = ((double)(clock() - startTime) / CLOCKS_PER_SEC);
+        latency_vals[elapsedEvents] = step_event->tsc_latency;
+        if (args->print_meas)
+            printf("%sSending ack for event_idx %d\n", args->format_prefix, elapsedEvents);
+        elapsedEvents++;
         usp_ack_event(&ctx);
         free_usp_event(event_type, event_buffer);
+        //event_buffer = NULL;
     }
+    if (elapsedTime > MAX_RUN_TIME)
+        printf("%sMaximum runtime exceeded. Finishing.", args->format_prefix);
+    else
+        printf("%sMaximum measurements exceeded. Finishing.", args->format_prefix);
+
+    fptr = fopen("Latency_Measurements", "w");
+    for(int i = 0; i < elapsedEvents; i++){
+        fprintf(fptr,"%"PRIu64",%d:",latency_vals[i],step_type[i]);
+    }
+    fclose(fptr);
+
 
     printf("%sDisabling single stepping\n", args->format_prefix);
     if (SEV_STEP_OK != disable_single_stepping(&ctx))
@@ -263,7 +297,7 @@ cleanup:
         printf("%sDisabling single stepping\n", args->format_prefix);
         if (SEV_STEP_OK != disable_single_stepping(&ctx))
         {
-            printf("%sfailed to disable single stepping\n", args->format_prefix);
+            printf("%sFailed to disable single stepping\n", args->format_prefix);
             res = HOST_CLIENT_ERROR;
             goto cleanup;
         }
@@ -298,8 +332,9 @@ int main(int argc, char **argv)
     int apic_timer;
     int opt;
     bool debug_enabled = false;
+    bool print_meas = false;
     enum func function = none;
-    while ((opt = getopt(argc, argv, "t:dfhxp")) != -1)
+    while ((opt = getopt(argc, argv, "t:dfhxpa")) != -1)
     {
         switch (opt)
         {
@@ -313,6 +348,7 @@ int main(int argc, char **argv)
                 printf("Invalid timer value\n");
                 exit(EXIT_FAILURE);
             }
+            function = single_step_func;
             break;
         case 'f':
             function = find_time_val;
@@ -324,6 +360,9 @@ int main(int argc, char **argv)
         case 'p':
             function = page_tracking;
             break;
+        case 'a':
+            print_meas = true;
+            break;
         case 'h':
             printf("Usage: %s [-t timer_value]\n", argv[0]);
             exit(EXIT_SUCCESS);
@@ -332,18 +371,12 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
     }
-    if (apic_timer == 0 && function == none)
-    {
-        printf("%sNo timer value provided.\n", format_prefix);
-        printf("%sProvide with [-t timer_value] or set option -f to find value dynamically.\n", format_prefix);
-        exit(EXIT_FAILURE);
-    }
     single_step_measure_args args = {
         .apic_timer = apic_timer,
         .format_prefix = format_prefix,
-        .debug_enabled = debug_enabled};
+        .debug_enabled = debug_enabled,
+        .print_meas = print_meas};
 
-    
     switch (function)
     {
     case test:
@@ -353,6 +386,12 @@ int main(int argc, char **argv)
         page_track(&args);
         break;
     case single_step_func:
+        if (apic_timer == 0)
+        {
+            printf("%sNo timer value provided.\n", format_prefix);
+            printf("%sProvide with [-t timer_value] or set option -f to find value dynamically.\n", format_prefix);
+            exit(EXIT_FAILURE);
+        }
         printf("Starting single step measure\n");
         single_step_measure(&args);
         break;

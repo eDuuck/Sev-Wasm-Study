@@ -232,9 +232,8 @@ void free_usp_event(usp_event_type_t type, void *event) {
 }
 
 int usp_poll_event(usp_poll_api_ctx_t* ctx, int* got_event, usp_event_type_t* event_type, void** event) {
-
     raw_spinlock_lock(&ctx->shared_mem_region->spinlock);
-    if( !ctx->shared_mem_region->have_event ) {
+    if( !ctx->shared_mem_region->have_event ) {//This is where machine freezes.
         *got_event = 0;
         raw_spinlock_unlock(&ctx->shared_mem_region->spinlock);
         //no an event is NOT an error
@@ -245,7 +244,6 @@ int usp_poll_event(usp_poll_api_ctx_t* ctx, int* got_event, usp_event_type_t* ev
     *got_event = 1;
     ctx->vm_is_paused = true;
     *event_type = ctx->shared_mem_region->event_type;
-
     uint64_t event_bytes;
     uint64_t event_buffer_offset = 0;
     if( get_size_for_event(*event_type,&event_bytes) ) {
@@ -350,7 +348,6 @@ void usp_ack_event(usp_poll_api_ctx_t* ctx) {
     if( ctx->shared_mem_region->event_acked) {
         fprintf(stderr,"usp_ack_event was called but ctx->shared_mem_region->event_acked was true");
     }
-
     // set status flags
     ctx->shared_mem_region->event_acked = 1;
     ctx->shared_mem_region->have_event = 0;

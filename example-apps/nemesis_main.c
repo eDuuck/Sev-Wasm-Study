@@ -132,12 +132,12 @@ int main(int argc, char** argv) {
         .check_debug_rip = false,
         .zero_step_abort_fraction = 0.8,
         .multi_step_abort_fraction = 0.2,
-        .save_logs_to_file = true,
+        .save_logs_to_file = false,
         .filename = "out.json",
         .instruction_slide = VICTIM_PROGRAM_SLIDE
     };
     end2end_test_t nemesis_slide = {
-        .name = "nemesis_slide",
+        .name = "nemesis_slide: ",
         .test_function = test_single_step_nop_slide,
         .args = (void*)&nemesis_slide_args,
 	    .skip = false

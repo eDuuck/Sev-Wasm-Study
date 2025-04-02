@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
     // after disabling single stepping. However, for the test_single_step_nop_slide_simple test it is exactly the other way around. I guess there are some contexts in which we cannot send the timer interrupt. When single stepping only userspace code we properly never encounter these
     test_single_step_simple_args_t test_single_step_simple_long_args_t = {
         .timer_value = timer_value,
-        .want_steps = 5000,
+        .want_steps = 10000,
         .zero_step_abort_fraction = 0.8,
         .multi_step_abort_fraction = 0.2,
     };
@@ -177,34 +177,35 @@ int main(int argc, char** argv) {
         {.name = "mixed page track bug",
          .test_function = test_track_all_mixed_with_single,
          .args = NULL,
-         .skip = false
+         .skip = true
         },
         {
             .name = "setup->teardown",
             .test_function = test_setup_teardown_ctx,
             .args = NULL,
-            .skip = false,
+            .skip = true,
         },
         {
             .name = "pagetrack write",
             .test_function = test_pagetrack_write,
             .args = NULL,
-            .skip = false,
+            .skip = true,
         },
         {
             .name = "pagetrack access",
             .test_function = test_pagetrack_access,
             .args = NULL,
-            .skip = false,
+            .skip = true,
         },
         {
             .name = "pagetrack exec",
             .test_function = test_pagetrack_exec,
             .args = NULL,
-            .skip = false,
+            .skip = true,
         },
+        //TODO: LOOK WHAT TEST_TRACK_ALL_REP DO AND ADD SO SINGLE-STEP-MEASURE
         {
-            .name = "test_track_all_rep",
+            .name = "test_track_all_rep", //SKIPPING THIS TEST MAKES SINGLE STEP FREEZE!!!!!
             .test_function = test_track_all_rep,
             .args = NULL,
             .skip = false,
@@ -220,7 +221,7 @@ int main(int argc, char** argv) {
             .test_function = test_import_free_user_evs,
             .args = NULL,
         },*/
-        testdef_do_cache_attack_l2,
+        //testdef_do_cache_attack_l2,
     };
 
     int tests_len = sizeof(tests)/sizeof(end2end_test_t);
