@@ -20,6 +20,7 @@ int stop_flag = 0;
 // Allocate memory pages
 void *allocate_pages(size_t size, int offset) {
     void *mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, offset);
+    memset(mem, 0, PAGE_SIZE);
     if (mem == MAP_FAILED) {
         perror("mmap failed");
         exit(EXIT_FAILURE);
@@ -45,8 +46,8 @@ uint64_t get_phys_addr(void *vaddr) {
 
 // Worker thread function
 void *ping_ponger_thread(void *arg) {
-    void *page1 = allocate_pages(PAGE_SIZE);
-    void *page2 = allocate_pages(PAGE_SIZE);
+    void *page1 = allocate_pages(PAGE_SIZE,0);
+    void *page2 = allocate_pages(PAGE_SIZE,PAGE_SIZE*3);
     uint64_t gpa1 = get_phys_addr(page1);
     uint64_t gpa2 = get_phys_addr(page2);
     

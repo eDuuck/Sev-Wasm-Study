@@ -15,54 +15,69 @@
 #include "common_structs.h"
 
 usp_poll_api_ctx_t ctx;
-bool api_open, single_stepping_enabled;
+bool api_open, single_stepping_enabled, gpa_set;
 single_step_measure_args *args;
+usp_event_type_t event_type;
+void *event_buffer;
+
+uint64_t gpa1, gpa2;
 
 static atomic_bool running = 0;
 static atomic_bool measure_active = 0;
 
-void *mock_thread(){
+void *mock_thread()
+{
     FILE *fptr;
-    int *latency_vals = malloc(sizeof(int)* MAX_STEP_AMOUNT);
-    char *counted_inst = malloc(sizeof(char)* MAX_STEP_AMOUNT);
+    int *latency_vals = malloc(sizeof(int) * MAX_STEP_AMOUNT);
+    char *counted_inst = malloc(sizeof(char) * MAX_STEP_AMOUNT);
 
     int elapsedEvents = 0;
 
     struct timespec ts;
     ts.tv_nsec = 1;
 
-    while (!atomic_load(&running));
+    while (!atomic_load(&running))
+        ;
 
-    while (elapsedEvents < MAX_STEP_AMOUNT && atomic_load(&running)){
+    while (elapsedEvents < MAX_STEP_AMOUNT && atomic_load(&running))
+    {
 
         counted_inst[elapsedEvents] = elapsedEvents;
         latency_vals[elapsedEvents] = elapsedEvents;
-        
+
         nanosleep(&ts, NULL);
         elapsedEvents++;
     }
-    
+
     if (elapsedEvents > MAX_STEP_AMOUNT)
         printf("Maximum measurements of %d exceeded. Finishing.\n", MAX_STEP_AMOUNT);
 
     //
-    //while (atomic_load(&running));
+    // while (atomic_load(&running));
     fptr = fopen("Mock_file", "w");
     for (int i = 0; i < elapsedEvents; i++)
     {
         fprintf(fptr, "%d,%d:", latency_vals[i], counted_inst[i]);
-        printf("Wrote value %d / %d \n",i+1,elapsedEvents);
+        printf("Wrote value %d / %d \n", i + 1, elapsedEvents);
     }
     fclose(fptr);
     return NULL;
 }
 
-void start_meas(){
+void start_meas()
+{
     atomic_exchange(&running, 1);
 }
 
-void stop_meas(){
+void stop_meas()
+{
     atomic_exchange(&running, 0);
+}
+
+bool should_abort_cb()
+{
+    // Simply check the atomic variable
+    return (atomic_load(&running) == 0);
 }
 
 int init_CTX(single_step_measure_args *arguments)
@@ -74,22 +89,23 @@ int init_CTX(single_step_measure_args *arguments)
         printf("%s" BRED "usp_new_ctx failed." reset " Check dmesg for more information\n", args->format_prefix);
         return HOST_CLIENT_ERROR;
     }
-
-    // Weird code needed so VM doesn't freeze.
-    track_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
-    untrack_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
-    usp_ack_event(&ctx);
-    usp_close_ctx(&ctx);
-
-    if (SEV_STEP_ERR == usp_new_ctx(&ctx, args->debug_enabled))
-    {
-        printf("%s" BRED "usp_new_ctx failed." reset " Check dmesg for more information\n", args->format_prefix);
-        return HOST_CLIENT_ERROR;
-    }
     api_open = true;
+    return 1; /*
+     // Weird code needed so VM doesn't freeze.
+     track_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
+     untrack_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
+     //usp_ack_event(&ctx);
+     usp_close_ctx(&ctx);
 
-    printf("%sAPI initialization done!\n", args->format_prefix);
-    return 1;
+     if (SEV_STEP_ERR == usp_new_ctx(&ctx, args->debug_enabled))
+     {
+         printf("%s" BRED "usp_new_ctx failed." reset " Check dmesg for more information\n", args->format_prefix);
+         return HOST_CLIENT_ERROR;
+     }
+     api_open = true;
+
+     printf("%sAPI initialization done!\n", args->format_prefix);
+     return 1;*/
 }
 
 int close_CTX()
@@ -104,6 +120,7 @@ int close_CTX()
         else
         {
             printf("%sAPI closed!\n", args->format_prefix);
+            api_open = false;
             return 1;
         }
     }
@@ -126,37 +143,33 @@ int en_single_step()
     return 1;
 }
 
-bool is_measure_active(){
+bool is_measure_active()
+{
     return atomic_load(&measure_active);
 }
 
-void *meas_thread(){
-    usp_event_type_t event_type;
-    void *event_buffer;
-
+void *meas_thread()
+{
     // Setting up data structures for measurement (Using int and char to reduce size)
-    int *latency_vals = malloc(sizeof(int)* MAX_STEP_AMOUNT);
-    char *counted_inst = malloc(sizeof(char)* MAX_STEP_AMOUNT);
+    int *latency_vals = malloc(sizeof(int) * MAX_STEP_AMOUNT);
+    char *counted_inst = malloc(sizeof(char) * MAX_STEP_AMOUNT);
 
     int elapsedEvents = 0;
 
-    bool encountered_multistep = false;
+    // bool encountered_multistep = false;
 
-    while(!atomic_load(&running)); //Wait here until main thread inform to start measurement.
-    atomic_exchange(&measure_active,true);
+    while (!atomic_load(&running)); // Wait here until main thread inform to start measurement.
+    atomic_exchange(&measure_active, true);
     while (elapsedEvents < MAX_STEP_AMOUNT && atomic_load(&running))
     {
         if (args->print_meas)
-            ("%sWaiting next event, event_idx=%d\n", args->format_prefix, elapsedEvents);
-        if (SEV_STEP_ERR == usp_block_until_event(&ctx, &event_type, &event_buffer))
+            printf("%sWaiting next event, event_idx=%d\n", args->format_prefix, elapsedEvents);
+        int ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort_cb, NULL);
+        if (ret == SEV_STEP_ERR_ABORT)
+            break;
+        if (ret == SEV_STEP_ERR)
         {
             printf("%susp_block_until_event" BRED " FAILED\n" reset, args->format_prefix);
-            return NULL;
-        }
-
-        if (event_type != SEV_STEP_EVENT)
-        {
-            printf("%sunexpected event type\n", args->format_prefix);
             return NULL;
         }
 
@@ -188,7 +201,7 @@ void *meas_thread(){
         free_usp_event(event_type, event_buffer);
         // event_buffer = NULL;
     }
-    atomic_exchange(&measure_active,false);
+    atomic_exchange(&measure_active, false);
     if (elapsedEvents > MAX_STEP_AMOUNT)
         printf("%sMaximum measurements exceeded. Finishing.", args->format_prefix);
 
@@ -202,22 +215,210 @@ void *meas_thread(){
 
     return NULL;
 }
-
-void *page_track()
+void set_gpas(uint64_t i_gpa1, uint64_t i_gpa2)
 {
+    gpa1 = i_gpa1;
+    gpa2 = i_gpa2;
+    gpa_set = true;
+}
+
+void *track_pingpong()
+{
+    int track_mode = KVM_PAGE_TRACK_WRITE;
+
+    if (!gpa_set)
+        printf("%sgpa1 and gpa2 not set, this will probably cause errors.\n", args->format_prefix);
+
+    int tracked_pages = 0;
+
+    while (!atomic_load(&running))
+        ;
+
+    track_page(&ctx, gpa1, track_mode);
+    // track_page(&ctx, gpa2, track_mode);
+    printf("%sReady to track pingpong pages.\n", args->format_prefix);
+    while (tracked_pages < PAGE_TRACKS && atomic_load(&running))
+    {
+        int ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort_cb, NULL);
+        if (ret == SEV_STEP_ERR_ABORT)
+            break;
+        if (event_type != PAGE_FAULT_EVENT)
+        {
+            printf("Didn't get a pagefault, event type is %d\n", (int)event_type);
+            break;
+        }
+        printf("%sGot a pagefault!\n", args->format_prefix);
+        usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
+        printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
+
+        // Track all pages except the one we just encountered so VM can continue execution.
+        // untrack_page(&ctx, pf_event->faulted_gpa, track_mode);
+        if (pf_event->faulted_gpa == gpa1)
+        {
+            track_page(&ctx, gpa2, track_mode);
+        }
+        else
+        {
+            track_page(&ctx, gpa1, track_mode);
+        }
+
+        tracked_pages++;
+
+        // Clearing event to resume VM execution.
+        // printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
+        usp_ack_event(&ctx);
+        free_usp_event(event_type, event_buffer);
+    }
+    printf("%sThread done.\n", args->format_prefix);
+    return NULL;
+}
+
+void *inside_pingpong_measure()
+{
+    int track_mode = KVM_PAGE_TRACK_WRITE;
+
+    if (!gpa_set)
+        printf("%sgpa1 and gpa2 not set, this will probably cause errors.\n", args->format_prefix);
+
+    int tracked_pages = 0;
+
+    while (!atomic_load(&running))
+        ;
+
+    track_page(&ctx, gpa1, track_mode);
+    printf("%sReady to track pingpong pages.\n", args->format_prefix);
+    // First we check for the specified pingpong accesses to sync execution.
+    while (tracked_pages < PAGE_TRACKS && atomic_load(&running))
+    {
+        int ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort_cb, NULL);
+        if (ret == SEV_STEP_ERR_ABORT)
+            break; // So we can stop the thread.
+        if (event_type != PAGE_FAULT_EVENT)
+        {
+            printf("%sDidn't get a pagefault, event type is %d\n", args->format_prefix, (int)event_type);
+            break;
+        }
+        tracked_pages++;
+        if (tracked_pages == PINGPONG_LEN * 2)
+        {
+            printf("%sPingpong should finish. Tracking all pages\n", args->format_prefix);
+            break;
+        }
+        printf("%sGot a pagefault!\n", args->format_prefix);
+        usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
+        printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
+
+        if (pf_event->faulted_gpa == gpa1)
+        {
+            track_page(&ctx, gpa2, track_mode);
+        }
+        else
+        {
+            track_page(&ctx, gpa1, track_mode);
+        }
+
+        usp_ack_event(&ctx);
+        free_usp_event(event_type, event_buffer);
+    }
+    
+    // Now we're out of the pingpong loop, next is the add or mul. So we measure single steps until a pagehit in gpa1.
+    int elapsedEvents = 0;
+    int *latency_vals = malloc(sizeof(int) * MAX_STEP_AMOUNT);
+    char *counted_inst = malloc(sizeof(char) * MAX_STEP_AMOUNT);
+
+    printf("%sEnabling single stepping with apic timer %d. \n \n", args->format_prefix,args->apic_timer);
+
+    enable_single_stepping(&ctx, args->apic_timer, NULL, 0);
+    //untrack_all_pages(&ctx, track_mode);
+    track_all_pages(&ctx, track_mode);
+    usp_ack_event(&ctx);
+    free_usp_event(event_type, event_buffer);
+    bool stepping_done = false;
+    atomic_exchange(&measure_active, true);
+    while (elapsedEvents < MAX_STEP_AMOUNT && atomic_load(&running) && !stepping_done)
+    {
+        //if (args->print_meas)
+        //    printf("%sWaiting next event, event_idx=%d\n", args->format_prefix, elapsedEvents);
+        int ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort_cb, NULL);
+        if (ret == SEV_STEP_ERR_ABORT)
+            break;
+        else if (ret == SEV_STEP_ERR)
+        {
+            printf("%susp_block_until_event" BRED " FAILED\n" reset, args->format_prefix);
+            return NULL;
+        }
+        if (event_type == PAGE_FAULT_EVENT)
+        { // We're inside some new page.
+            usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
+            uint64_t pf_gpa = pf_event->faulted_gpa;
+            printf("%sEntered a new page at GPA: 0x%lx.\n", args->format_prefix, pf_gpa);
+            if (pf_gpa == gpa1 || pf_gpa == gpa2)
+            {
+                printf("%sOne of the pingpong pages, finishing...%lx.\n\n", args->format_prefix, pf_gpa);
+                untrack_all_pages(&ctx, track_mode);
+                disable_single_stepping(&ctx);
+                stepping_done = true;
+            }
+            else
+            {
+                track_all_pages(&ctx, track_mode);
+                untrack_page(&ctx,pf_gpa, track_mode);
+                printf("%sNot one of the pingpong pages.\n", args->format_prefix);
+            }
+        }
+        else if (event_type == SEV_STEP_EVENT)
+        {
+            elapsedEvents++;
+            sev_step_event_t *step_event = (sev_step_event_t *)event_buffer;
+            if (args->print_meas)
+            {
+                print_single_step_event(args->format_prefix, step_event);
+                /*switch (step_event->counted_instructions)
+                {
+                case 0:
+                    printf("%sZero steps\n", args->format_prefix);
+                    break;
+                case 1:
+                    printf("%sSingle step\n", args->format_prefix);
+                    break;
+                default:
+                    printf("%sMulti step\n", args->format_prefix);
+                    break;
+                }*/
+            }
+            counted_inst[elapsedEvents-1] = step_event->counted_instructions;
+            latency_vals[elapsedEvents-1] = (int)step_event->tsc_latency;
+        }
+        usp_ack_event(&ctx);
+        free_usp_event(event_type, event_buffer);
+    }
+    atomic_exchange(&measure_active, false);
+    if (elapsedEvents > MAX_STEP_AMOUNT)
+        printf("%sMaximum measurements exceeded. Finishing.", args->format_prefix);
+
+    close_CTX();
+    printf("%sThread done.\n", args->format_prefix);
+    free(counted_inst);
+    free(latency_vals);
+    return NULL;
+}
+
+/*
     // Try tracking all pages to infer access pattern.
     // modes = KVM_PAGE_TRACK_ACCESS or KVM_PAGE_TRACK_WRITE or KVM_PAGE_TRACK_EXEC
     int track_mode = KVM_PAGE_TRACK_WRITE;
-
-    printf("%sTracking all gpa with mode %s\n", args->format_prefix, tracking_mode_to_string(track_mode));
-    track_all_pages(&ctx, track_mode);
 
     usp_event_type_t event_type;
     void *event_buffer;
     int tracked_pages = 0;
 
-    while(!atomic_load(&running)); //Wait here until main thread inform to start measurement.
-    atomic_exchange(&measure_active,true);
+    while (!atomic_load(&running))
+        ; // Wait here until main thread inform to start measurement.
+    atomic_exchange(&measure_active, true);
+
+    printf("%sTracking all gpa with mode %s\n", args->format_prefix, tracking_mode_to_string(track_mode));
+    track_all_pages(&ctx, track_mode);
+
     // Playing around to see if we can print out the measured pages.
     while (tracked_pages < PAGE_TRACKS && atomic_load(&running))
     {
@@ -232,17 +433,17 @@ void *page_track()
         printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
 
         // Track all pages except the one we just encountered so VM can continue execution.
-        track_all_pages(&ctx, track_mode);
+        // track_all_pages(&ctx, track_mode);
         untrack_page(&ctx, pf_event->faulted_gpa, track_mode);
 
         tracked_pages++;
 
         // Clearing event to resume VM execution.
-        //printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
+        // printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
         usp_ack_event(&ctx);
         free_usp_event(event_type, event_buffer);
     }
-    atomic_exchange(&measure_active,false);
-    untrack_all_pages(&ctx,track_mode);
+    atomic_exchange(&measure_active, false);
+    untrack_all_pages(&ctx, track_mode);
     return NULL;
-}
+}*/

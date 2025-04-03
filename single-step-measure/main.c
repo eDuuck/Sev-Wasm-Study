@@ -21,27 +21,29 @@
 
 static char UDP_buffer[BUFFER_SIZE];
 static int socket_fd;
+static char *format_prefix = "   ";
 
-void rec_mes(){
+void rec_mes(bool print){
     if (recvfrom(socket_fd, UDP_buffer, MAXLINE, 0, (struct sockaddr *)NULL, NULL) < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             printf("Timeout reached, no response received.\n");
         } else {
             perror("recvfrom failed");
         }
+    }else if(print){
+        printf("%sGot answer from server: %s \n",format_prefix,UDP_buffer);
     }
 }
 
 int main(int argc, char **argv)
 {
-    if(argc < 2){
+    if(argc < 1){
         perror("Not enough input parameters.");
     }
     
-    char *text = argv[2];
+    //char *text = argv[2];
     
-    
-    char *format_prefix = "   ";
+    //char *format_prefix = "   ";
     bool debug_enabled = false;
     bool print_meas = true;
     int apic_timer = atoi(argv[1]);
@@ -66,8 +68,8 @@ int main(int argc, char **argv)
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     struct timeval timeout;
-    timeout.tv_sec = 0;  // Timeout in seconds
-    timeout.tv_usec = 1000*MAX_RUN_TIME; // Timeout in microseconds
+    timeout.tv_sec = MAX_RUN_TIME;  // Timeout in seconds
+    timeout.tv_usec = 0; // Timeout in microseconds
     if(setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
         perror("setsockopt failed");
     
@@ -81,57 +83,66 @@ int main(int argc, char **argv)
     printf("%sChecking if server is active.\n",args.format_prefix);
 
     sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
-    rec_mes();
+    rec_mes(false);
     if(strcmp(UDP_buffer,"pong")!=0){
         perror("Didn't get correct respond back from server. Aborting.");
     }
 
     printf("%sGot response from server!\n",args.format_prefix);
 
+    printf("%sAsking for GPAs.\n",args.format_prefix);
+
     if(!init_CTX(&args))perror("Init of SEVstep API failed.");
-    if(!en_single_step(&args))perror("Init of single-step failed.");
+    //if(!en_single_step(&args))perror("Init of single-step failed.");
+    printf("%sCTX set up!\n",args.format_prefix);
 
+    sendto(socket_fd, "get_pages_gpa", 20, 0, (struct sockaddr *)NULL, addrlen);
+    rec_mes(true);
 
+    uint64_t gpa1, gpa2;
+    sscanf(UDP_buffer, "gpa1:0x%lx, gpa2:0x%lx", &gpa1, &gpa2);
+    //printf("%lx,%lx",gpa1,gpa2);
+    //return 1;
+    
     //pthread_t measure_thread;
     //pthread_create(&measure_thread,NULL,meas_thread,NULL);
-
+    set_gpas(gpa1,gpa2);
     pthread_t monitor_thread;
-    pthread_create(&monitor_thread,NULL,page_track,NULL);
-    sendto(socket_fd, "pingpong", 10, 0, (struct sockaddr *)NULL, addrlen);
     
+    pthread_create(&monitor_thread,NULL,inside_pingpong_measure,NULL);
     start_meas();
+    
+    printf("%sSending pingpong to server!\n",args.format_prefix);
+    
+    sendto(socket_fd, "pingpong add", 20, 0, (struct sockaddr *)NULL, addrlen);
+    
+    
 
     //usleep(1000000);
 
-    rec_mes();
+    rec_mes(true);
     for(int i = 0; i < 100; i++){
         stop_meas();
         if(!is_measure_active())
             break;
-        usleep(1);
     }
 
-    if (!(errno == EAGAIN || errno == EWOULDBLOCK)) {
-        printf("Got answer from server: %s \n",UDP_buffer);
-    }
-    
-
-    printf("Waiting for thread to finish.");
+    printf("%sWaiting for thread to finish.\n",args.format_prefix);
 
     
     pthread_join(monitor_thread,NULL);
+    printf("%sThread finished. Attempting to contact server.\n",args.format_prefix);
     close_CTX();
-    printf("Thread finished. Attempting to contact server.\n");
     sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
-    rec_mes();
+    rec_mes(true);
     if(strcmp(UDP_buffer,"pong")!=0){
         printf("Didn't get correct response back from server. Oh no.");
-        for(int i = 0; i < 100; i++){
+        /*for(int i = 0; i < 100; i++){
             if(close_CTX())
                 break;
             usleep(1);
-        }
-    }
+        }*/
+    }else printf("%sGot response!\n",args.format_prefix);
     
     //pthread_exit(NULL);
     return 0;

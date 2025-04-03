@@ -10,8 +10,10 @@ bool is_measure_active();
 
 void *mock_thread();
 void *meas_thread();
-void *page_track();
+void *inside_pingpong_measure();
+void *track_pingpong(uint64_t gpa1, uint64_t gpa2);
 
+void set_gpas(uint64_t i_gpa1, uint64_t i_gpa2);
 
 void start_meas();
 void stop_meas();
