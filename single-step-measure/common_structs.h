@@ -2,11 +2,13 @@
 #define BUFFER_SIZE 100
 #define MAXLINE 1000
 
-#define MAX_STEP_AMOUNT 20
-#define PAGE_TRACKS 1000
-#define MAX_RUN_TIME 5 //Timeout in ms.
+#define MAX_STEP_AMOUNT 40000
+#define PAGE_TRACKS 500
+#define MAX_RUN_TIME 20 //Timeout in ms.
 
-#define PINGPONG_LEN 3
+#define MAX_ZERO_STEPS 1000
+
+#define PINGPONG_LEN 1
 
 typedef struct
 {

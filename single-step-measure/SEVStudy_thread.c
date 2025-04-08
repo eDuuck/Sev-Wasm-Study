@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+#include <time.h>
+
 #include <stdatomic.h>
 
 #include "SEVStudy_thread.h"
@@ -14,7 +16,9 @@
 #include "errorCodes.h"
 #include "common_structs.h"
 
-usp_poll_api_ctx_t ctx;
+#include <sys/stat.h>
+
+static usp_poll_api_ctx_t ctx;
 bool api_open, single_stepping_enabled, gpa_set;
 single_step_measure_args *args;
 usp_event_type_t event_type;
@@ -276,19 +280,21 @@ void *track_pingpong()
 void *inside_pingpong_measure()
 {
     int track_mode = KVM_PAGE_TRACK_WRITE;
+    int *latency_vals = malloc(sizeof(int) * MAX_STEP_AMOUNT);
+    int *counted_inst = malloc(sizeof(int) * MAX_STEP_AMOUNT);
 
     if (!gpa_set)
         printf("%sgpa1 and gpa2 not set, this will probably cause errors.\n", args->format_prefix);
 
     int tracked_pages = 0;
+    bool pingpong_done = false;
 
-    while (!atomic_load(&running))
-        ;
+    while (!atomic_load(&running));
 
     track_page(&ctx, gpa1, track_mode);
     printf("%sReady to track pingpong pages.\n", args->format_prefix);
     // First we check for the specified pingpong accesses to sync execution.
-    while (tracked_pages < PAGE_TRACKS && atomic_load(&running))
+    while (tracked_pages < PAGE_TRACKS && atomic_load(&running) && !pingpong_done)
     {
         int ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort_cb, NULL);
         if (ret == SEV_STEP_ERR_ABORT)
@@ -299,14 +305,22 @@ void *inside_pingpong_measure()
             break;
         }
         tracked_pages++;
-        if (tracked_pages == PINGPONG_LEN * 2)
-        {
-            printf("%sPingpong should finish. Tracking all pages\n", args->format_prefix);
-            break;
-        }
+        
         printf("%sGot a pagefault!\n", args->format_prefix);
         usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
         printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
+
+        if (tracked_pages == PINGPONG_LEN * 2)
+        {
+            printf("%sPingpong should finish. Tracking all pages\n", args->format_prefix);
+
+            track_page(&ctx, gpa1, track_mode);
+            track_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
+            //track_page(&ctx, gpa2, track_mode);
+            printf("%sEnabling single stepping with apic timer %d. \n \n", args->format_prefix,args->apic_timer);
+            enable_single_stepping(&ctx,args->apic_timer,NULL,0);
+            pingpong_done = true;
+        }
 
         if (pf_event->faulted_gpa == gpa1)
         {
@@ -323,22 +337,13 @@ void *inside_pingpong_measure()
     
     // Now we're out of the pingpong loop, next is the add or mul. So we measure single steps until a pagehit in gpa1.
     int elapsedEvents = 0;
-    int *latency_vals = malloc(sizeof(int) * MAX_STEP_AMOUNT);
-    char *counted_inst = malloc(sizeof(char) * MAX_STEP_AMOUNT);
+    int zeroSteps = 0;
 
-    printf("%sEnabling single stepping with apic timer %d. \n \n", args->format_prefix,args->apic_timer);
 
-    enable_single_stepping(&ctx, args->apic_timer, NULL, 0);
-    //untrack_all_pages(&ctx, track_mode);
-    track_all_pages(&ctx, track_mode);
-    usp_ack_event(&ctx);
-    free_usp_event(event_type, event_buffer);
-    bool stepping_done = false;
+    volatile bool stepping_done = false;
     atomic_exchange(&measure_active, true);
     while (elapsedEvents < MAX_STEP_AMOUNT && atomic_load(&running) && !stepping_done)
     {
-        //if (args->print_meas)
-        //    printf("%sWaiting next event, event_idx=%d\n", args->format_prefix, elapsedEvents);
         int ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort_cb, NULL);
         if (ret == SEV_STEP_ERR_ABORT)
             break;
@@ -355,51 +360,64 @@ void *inside_pingpong_measure()
             if (pf_gpa == gpa1 || pf_gpa == gpa2)
             {
                 printf("%sOne of the pingpong pages, finishing...%lx.\n\n", args->format_prefix, pf_gpa);
-                untrack_all_pages(&ctx, track_mode);
+                untrack_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
+                untrack_all_pages(&ctx, KVM_PAGE_TRACK_ACCESS);
+                untrack_all_pages(&ctx, KVM_PAGE_TRACK_WRITE);
                 disable_single_stepping(&ctx);
                 stepping_done = true;
             }
             else
-            {
-                track_all_pages(&ctx, track_mode);
-                untrack_page(&ctx,pf_gpa, track_mode);
+            {  
+                //Not the pingpong page, therefor victim page!
+                track_page(&ctx, gpa1, KVM_PAGE_TRACK_WRITE);
+                track_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
+                enable_single_stepping(&ctx,args->apic_timer,&pf_gpa,1); //Since enable stepping resets access bit we don't need to untrack pf_gpa.
                 printf("%sNot one of the pingpong pages.\n", args->format_prefix);
             }
         }
         else if (event_type == SEV_STEP_EVENT)
         {
-            elapsedEvents++;
             sev_step_event_t *step_event = (sev_step_event_t *)event_buffer;
-            if (args->print_meas)
-            {
+            if (args->print_meas){
                 print_single_step_event(args->format_prefix, step_event);
-                /*switch (step_event->counted_instructions)
-                {
-                case 0:
-                    printf("%sZero steps\n", args->format_prefix);
-                    break;
-                case 1:
-                    printf("%sSingle step\n", args->format_prefix);
-                    break;
-                default:
-                    printf("%sMulti step\n", args->format_prefix);
-                    break;
-                }*/
+            }            
+            if(step_event->counted_instructions > 0){
+                elapsedEvents++;
+                counted_inst[elapsedEvents-1] = step_event->counted_instructions;
+                latency_vals[elapsedEvents-1] = (int)step_event->tsc_latency;
+            }else{
+                zeroSteps++;
+                if(zeroSteps >= MAX_ZERO_STEPS){
+                    printf("%sToo many single steps occured, %d non-zero step events with %d zero steps.\n",args->format_prefix,elapsedEvents,zeroSteps);
+                    stepping_done = true;
+                }
             }
-            counted_inst[elapsedEvents-1] = step_event->counted_instructions;
-            latency_vals[elapsedEvents-1] = (int)step_event->tsc_latency;
+            
+        }else{
+            printf("%sUnkown event?",args->format_prefix);
         }
         usp_ack_event(&ctx);
         free_usp_event(event_type, event_buffer);
     }
     atomic_exchange(&measure_active, false);
-    if (elapsedEvents > MAX_STEP_AMOUNT)
+
+    if (elapsedEvents >= MAX_STEP_AMOUNT)
         printf("%sMaximum measurements exceeded. Finishing.", args->format_prefix);
 
+  
+    FILE *fptr;
+    fptr = fopen("output/Latency_Measurements", "w");
+    for (int i = 0; i < elapsedEvents; i++)
+    {
+        fprintf(fptr, "%d,%d,%d:", i,latency_vals[i], counted_inst[i]);
+    }
+    fclose(fptr);
+
     close_CTX();
-    printf("%sThread done.\n", args->format_prefix);
-    free(counted_inst);
+
     free(latency_vals);
+    free(counted_inst);
+    printf("%sThread done.\n", args->format_prefix);
     return NULL;
 }
 

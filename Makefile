@@ -96,4 +96,5 @@ clean: clean-apps
 	rm -rf external-dependencies/json-c-build
 	rm -rf external-dependencies/json-c-install
 	rm -rf external-dependencies/curl-build
+	rm -rf output
 	cargo clean

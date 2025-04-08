@@ -15,6 +15,8 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include "../sev-step-lib/sev_step_api.h"
+
 #include "SEVStudy_thread.h"
 #include "errorCodes.h"
 #include "common_structs.h"
@@ -80,12 +82,15 @@ int main(int argc, char **argv)
         exit(0);
     }
 
+    printf("%sStarting test, max single-steps: %d.\n\n",args.format_prefix,MAX_STEP_AMOUNT);
+
     printf("%sChecking if server is active.\n",args.format_prefix);
 
     sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
     rec_mes(false);
     if(strcmp(UDP_buffer,"pong")!=0){
-        perror("Didn't get correct respond back from server. Aborting.");
+        printf("Didn't get correct respond back from server. Aborting.\n");
+        exit(1);
     }
 
     printf("%sGot response from server!\n",args.format_prefix);
@@ -101,25 +106,16 @@ int main(int argc, char **argv)
 
     uint64_t gpa1, gpa2;
     sscanf(UDP_buffer, "gpa1:0x%lx, gpa2:0x%lx", &gpa1, &gpa2);
-    //printf("%lx,%lx",gpa1,gpa2);
-    //return 1;
-    
-    //pthread_t measure_thread;
-    //pthread_create(&measure_thread,NULL,meas_thread,NULL);
     set_gpas(gpa1,gpa2);
+
     pthread_t monitor_thread;
-    
     pthread_create(&monitor_thread,NULL,inside_pingpong_measure,NULL);
-    start_meas();
     
     printf("%sSending pingpong to server!\n",args.format_prefix);
     
-    sendto(socket_fd, "pingpong add", 20, 0, (struct sockaddr *)NULL, addrlen);
+    start_meas();
+    sendto(socket_fd, "pingpong add", 15, 0, (struct sockaddr *)NULL, addrlen);
     
-    
-
-    //usleep(1000000);
-
     rec_mes(true);
     for(int i = 0; i < 100; i++){
         stop_meas();
@@ -136,13 +132,14 @@ int main(int argc, char **argv)
     sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
     rec_mes(true);
     if(strcmp(UDP_buffer,"pong")!=0){
-        printf("Didn't get correct response back from server. Oh no.");
+        printf("Didn't get correct response back from server. Oh no.\n");
         /*for(int i = 0; i < 100; i++){
             if(close_CTX())
                 break;
             usleep(1);
         }*/
     }else printf("%sGot response!\n",args.format_prefix);
+    
     
     //pthread_exit(NULL);
     return 0;

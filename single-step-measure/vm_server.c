@@ -79,7 +79,7 @@ int main()
     uint64_t gpa1 = get_phys_addr(page1);
     uint64_t gpa2 = get_phys_addr(page2);
 
-    printf("Version 5, Pingpong %d now.\n",PINGPONG_LEN);
+    printf("Version 7, Pingpong %d now.\n",PINGPONG_LEN);
     
     printf("Worker: Page1 GPA = 0x%lx, Page2 GPA = 0x%lx\n", gpa1, gpa2);
     
@@ -121,7 +121,7 @@ int main()
                 *((volatile int *)page1) = i;
                 *((volatile int *)page2) = i;
             }
-            for(int i = 0; i < 100; i++){
+            for(int i = 0; i < 3; i++){
                 a += 5;
             }
             for(int i = 0; i < PINGPONG_LEN;i++){
@@ -136,7 +136,7 @@ int main()
                 *((volatile int *)page1) = i;
                 *((volatile int *)page2) = i;
             }
-            for(int i = 0; i < 100; i++){
+            for(int i = 0; i < 10; i++){
                 a *= 5;
             }
             for(int i = 0; i < PINGPONG_LEN;i++){

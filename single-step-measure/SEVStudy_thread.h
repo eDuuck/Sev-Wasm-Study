@@ -6,12 +6,14 @@ typedef struct
     bool print_meas;
 } single_step_measure_args;
 
+
+
 bool is_measure_active();
 
 void *mock_thread();
 void *meas_thread();
 void *inside_pingpong_measure();
-void *track_pingpong(uint64_t gpa1, uint64_t gpa2);
+void *track_pingpong();
 
 void set_gpas(uint64_t i_gpa1, uint64_t i_gpa2);
 
