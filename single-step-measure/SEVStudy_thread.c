@@ -314,7 +314,7 @@ void *inside_pingpong_measure()
         {
             printf("%sPingpong should finish. Tracking all pages\n", args->format_prefix);
 
-            track_page(&ctx, gpa1, track_mode);
+            track_page(&ctx, gpa1, track_mode); //IMPORTANT HERE TO RUN track_page -> track_all_pages -> enable_single_stepping(NULL).
             track_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
             //track_page(&ctx, gpa2, track_mode);
             printf("%sEnabling single stepping with apic timer %d. \n \n", args->format_prefix,args->apic_timer);
