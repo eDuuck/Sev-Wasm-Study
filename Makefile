@@ -83,9 +83,17 @@ testing: $(OBJ_FILE_DIR)/single-step-measure/main.o $(OBJ_FILE_DIR)/single-step-
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/testing $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
-server: $(OBJ_FILE_DIR)/single-step-measure/vm_server.o 
+#server: $(OBJ_FILE_DIR)/single-step-measure/server/vm_server.o 
+#	mkdir -p $(OUTPUT_BINARY_DIR)
+#	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/vm-serv $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
+#$(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o:  sev-step-lib/raw_spinlock.asm
+#	mkdir -p $(@D)
+#	nasm -f elf64 -o $(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o $^
+
+server: ##Put this in the server folder instead. Make output folder in there that .gitignore can ignore.
 	mkdir -p $(OUTPUT_BINARY_DIR)
-	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/vm-serv $^ -lsevstep -pthread -lm -lcurl -ljson-c
+	nasm -f elf64 ./single-step-measure/server/assembly_loops.asm -o $(OUTPUT_BINARY_DIR)/server/assembly_loops.o
 
 
 clean-apps:

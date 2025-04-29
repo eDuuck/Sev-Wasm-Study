@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <stdbool.h>
 
@@ -9,6 +8,7 @@
 #include <stdatomic.h>
 
 #include "SEVStudy_thread.h"
+#include "server/vm_server.h"
 
 #include "../sev-step-lib/ansi-color-codes.h"
 #include "../sev-step-lib/sev_step_api.h"
@@ -64,6 +64,8 @@ void *mock_thread()
         fprintf(fptr, "%d,%d:", latency_vals[i], counted_inst[i]);
         printf("Wrote value %d / %d \n", i + 1, elapsedEvents);
     }
+    free(latency_vals);
+    free(counted_inst);
     fclose(fptr);
     return NULL;
 }
@@ -359,7 +361,7 @@ void *inside_pingpong_measure()
             printf("%sEntered a new page at GPA: 0x%lx.\n", args->format_prefix, pf_gpa);
             if (pf_gpa == gpa1 || pf_gpa == gpa2)
             {
-                printf("%sOne of the pingpong pages, finishing...%lx.\n\n", args->format_prefix, pf_gpa);
+                printf("%sOne of the pingpong pages, finishing....\n\n", args->format_prefix);
                 untrack_all_pages(&ctx, KVM_PAGE_TRACK_EXEC);
                 untrack_all_pages(&ctx, KVM_PAGE_TRACK_ACCESS);
                 untrack_all_pages(&ctx, KVM_PAGE_TRACK_WRITE);
@@ -392,7 +394,6 @@ void *inside_pingpong_measure()
                     stepping_done = true;
                 }
             }
-            
         }else{
             printf("%sUnkown event?",args->format_prefix);
         }
@@ -403,13 +404,23 @@ void *inside_pingpong_measure()
 
     if (elapsedEvents >= MAX_STEP_AMOUNT)
         printf("%sMaximum measurements exceeded. Finishing.", args->format_prefix);
+    
+    time_t t;
+    char fileName[40];
+    struct tm *tmp;
+    time(&t);
+    tmp = localtime(&t);
+    strftime(fileName,sizeof(fileName),"output/Measurement_%m%d_%H%M%S.csv", tmp);
 
-  
     FILE *fptr;
-    fptr = fopen("output/Latency_Measurements", "w");
+
+    fptr = fopen(fileName, "w");
+
+    fprintf(fptr, "#This measurement was done on function %s\n",args->call_fun);
+    fprintf(fptr, "Step_event;Latency Value;Counted Steps\n");
     for (int i = 0; i < elapsedEvents; i++)
     {
-        fprintf(fptr, "%d,%d,%d:", i,latency_vals[i], counted_inst[i]);
+        fprintf(fptr, "%d;%d;%d\n", i,latency_vals[i], counted_inst[i]);
     }
     fclose(fptr);
 
@@ -421,47 +432,3 @@ void *inside_pingpong_measure()
     return NULL;
 }
 
-/*
-    // Try tracking all pages to infer access pattern.
-    // modes = KVM_PAGE_TRACK_ACCESS or KVM_PAGE_TRACK_WRITE or KVM_PAGE_TRACK_EXEC
-    int track_mode = KVM_PAGE_TRACK_WRITE;
-
-    usp_event_type_t event_type;
-    void *event_buffer;
-    int tracked_pages = 0;
-
-    while (!atomic_load(&running))
-        ; // Wait here until main thread inform to start measurement.
-    atomic_exchange(&measure_active, true);
-
-    printf("%sTracking all gpa with mode %s\n", args->format_prefix, tracking_mode_to_string(track_mode));
-    track_all_pages(&ctx, track_mode);
-
-    // Playing around to see if we can print out the measured pages.
-    while (tracked_pages < PAGE_TRACKS && atomic_load(&running))
-    {
-        usp_block_until_event(&ctx, &event_type, &event_buffer);
-        if (event_type != PAGE_FAULT_EVENT)
-        {
-            printf("Didn't get a pagefault, event type is %d\n", (int)event_type);
-            break;
-        }
-        printf("%sGot a pagefault!\n", args->format_prefix);
-        usp_page_fault_event_t *pf_event = (usp_page_fault_event_t *)event_buffer;
-        printf("%sPagefault Event: {GPA:0x%lx}\n", args->format_prefix, pf_event->faulted_gpa);
-
-        // Track all pages except the one we just encountered so VM can continue execution.
-        // track_all_pages(&ctx, track_mode);
-        untrack_page(&ctx, pf_event->faulted_gpa, track_mode);
-
-        tracked_pages++;
-
-        // Clearing event to resume VM execution.
-        // printf("%sSending ack for event_idx %d\n", args->format_prefix, event_idx);
-        usp_ack_event(&ctx);
-        free_usp_event(event_type, event_buffer);
-    }
-    atomic_exchange(&measure_active, false);
-    untrack_all_pages(&ctx, track_mode);
-    return NULL;
-}*/

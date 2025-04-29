@@ -4,6 +4,8 @@ typedef struct
     char *format_prefix;
     bool debug_enabled;
     bool print_meas;
+    char *call_fun;
+    int call_fun_len;
 } single_step_measure_args;
 
 

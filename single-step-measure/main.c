@@ -39,8 +39,9 @@ void rec_mes(bool print){
 
 int main(int argc, char **argv)
 {
-    if(argc < 1){
-        perror("Not enough input parameters.");
+    if(argc < 3){
+        printf("Usage: %s apic_timer_value server_comm\n", argv[0]);
+        exit(EXIT_FAILURE);
     }
     
     //char *text = argv[2];
@@ -53,9 +54,11 @@ int main(int argc, char **argv)
         .apic_timer = apic_timer,
         .format_prefix = format_prefix,
         .debug_enabled = debug_enabled,
-        .print_meas = print_meas};
+        .print_meas = print_meas,
+        .call_fun = argv[2],
+        .call_fun_len = sizeof(argv[2]),
+    };
     
-   
 
     struct sockaddr_in server_address;
     socklen_t addrlen = sizeof(server_address);
@@ -86,7 +89,7 @@ int main(int argc, char **argv)
 
     printf("%sChecking if server is active.\n",args.format_prefix);
 
-    sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
+    sendto(socket_fd, "ping", BUFFER_SIZE, 0, (struct sockaddr *)NULL, addrlen);
     rec_mes(false);
     if(strcmp(UDP_buffer,"pong")!=0){
         printf("Didn't get correct respond back from server. Aborting.\n");
@@ -95,26 +98,34 @@ int main(int argc, char **argv)
 
     printf("%sGot response from server!\n",args.format_prefix);
 
-    printf("%sAsking for GPAs.\n",args.format_prefix);
+    printf("%sChecking if function available.\n",args.format_prefix);
+    
+    sendto(socket_fd, args.call_fun, BUFFER_SIZE, 0, (struct sockaddr *)NULL, addrlen);
+    rec_mes(true);
+    if(strcmp(UDP_buffer,"NOFUNC")==0 || (errno == EAGAIN || errno == EWOULDBLOCK)){
+        printf("Server is missing function, or not responding. Aborting.\n");
+        exit(1);
+    }
+    printf("%sServer can perform requested function call.\n",args.format_prefix);
 
-    if(!init_CTX(&args))perror("Init of SEVstep API failed.");
-    //if(!en_single_step(&args))perror("Init of single-step failed.");
-    printf("%sCTX set up!\n",args.format_prefix);
+    printf("%sAsking for pingpong GPAs.\n",args.format_prefix);
 
-    sendto(socket_fd, "get_pages_gpa", 20, 0, (struct sockaddr *)NULL, addrlen);
+    sendto(socket_fd, "get_pages_gpa", BUFFER_SIZE, 0, (struct sockaddr *)NULL, addrlen);
     rec_mes(true);
 
     uint64_t gpa1, gpa2;
     sscanf(UDP_buffer, "gpa1:0x%lx, gpa2:0x%lx", &gpa1, &gpa2);
+
+    if(!init_CTX(&args))perror("Init of SEVstep API failed.");
+    printf("%sCTX set up!\n",args.format_prefix);
     set_gpas(gpa1,gpa2);
 
     pthread_t monitor_thread;
     pthread_create(&monitor_thread,NULL,inside_pingpong_measure,NULL);
     
-    printf("%sSending pingpong to server!\n",args.format_prefix);
-    
+    printf("%sCalling function from server!\n",args.format_prefix);
     start_meas();
-    sendto(socket_fd, "pingpong add", 15, 0, (struct sockaddr *)NULL, addrlen);
+    sendto(socket_fd, args.call_fun, BUFFER_SIZE, 0, (struct sockaddr *)NULL, addrlen);
     
     rec_mes(true);
     for(int i = 0; i < 100; i++){
@@ -129,7 +140,7 @@ int main(int argc, char **argv)
     pthread_join(monitor_thread,NULL);
     printf("%sThread finished. Attempting to contact server.\n",args.format_prefix);
     close_CTX();
-    sendto(socket_fd, "ping", 10, 0, (struct sockaddr *)NULL, addrlen);
+    sendto(socket_fd, "ping", BUFFER_SIZE, 0, (struct sockaddr *)NULL, addrlen);
     rec_mes(true);
     if(strcmp(UDP_buffer,"pong")!=0){
         printf("Didn't get correct response back from server. Oh no.\n");
