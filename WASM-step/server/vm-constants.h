@@ -1,0 +1,1 @@
+#define PINGPONG_LEN 1000

@@ -15,6 +15,12 @@ I will play around with this and make a simple program. This section will
 later describe this and the output from the page-tracking can be used to 
 learn more about virtual machines.
 
+
+
+
+Using track_page(), causes single_stepp_enable(NULL) to inactivate.
+Encountering a page fault untracks that page. 
+
 ## Setting up a test for single stepping
 
 

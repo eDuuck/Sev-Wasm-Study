@@ -1,4 +1,4 @@
-all: libsevstep.a single-step-measure#end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments nemesis-eval
+all: libsevstep.a single-step-measure end2end-tests-vm-server end2end-tests-hv-client kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 .PHONY: clean clean-apps dependencies end2end-tests-vm-server end2end-tests-hv-client libsevstep.a kaslr-attack  sev-step-tests paper-experiments nemesis-eval
 
 include environment.env
@@ -9,7 +9,7 @@ endif
 
 INCLUDES =   -I./external-dependencies/json-c-install/include -I./external-dependencies/curl/include  -I${KERNEL_HEADER_PATH}
 LIBDIRS = -L./build/libs -L./external-dependencies/curl-build/lib -L./external-dependencies/json-c-install/lib
-CFLAGS = -Wall -Wextra -fstack-protector -Wshadow -fno-omit-frame-pointer #-Werror -Wno-unused-variable #-g  -fsanitize=address 
+CFLAGS = -fsanitize=address -Wall -Wextra -fstack-protector -Wshadow -fno-omit-frame-pointer -g #-Wno-unused-variable -Werror
 
 
 SUBDIR = sev-step-lib end2end-tests/host-client example-apps
@@ -75,26 +75,29 @@ sev-step-tests: $(OBJ_FILE_DIR)/sev-step-lib/sev_step_tests.o
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/sev-step-tests $^ -lsevstep -pthread -ljson-c -lm -lcurl
 
-single-step-measure: $(OBJ_FILE_DIR)/single-step-measure/single-step-measure.o $(OUTPUT_LIB_DIR)/libsevstep.a
-	mkdir -p $(OUTPUT_BINARY_DIR)
-	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/single-step-measure $^ -lsevstep -pthread -lm -lcurl -ljson-c
+#single-step-measure: $(OBJ_FILE_DIR)/single-step-measure/single-step-measure.o $(OUTPUT_LIB_DIR)/libsevstep.a
+#	mkdir -p $(OUTPUT_BINARY_DIR)
+#	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/single-step-measure $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
 testing: $(OBJ_FILE_DIR)/single-step-measure/main.o $(OBJ_FILE_DIR)/single-step-measure/SEVStudy_thread.o  $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/testing $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
-#server: $(OBJ_FILE_DIR)/single-step-measure/server/vm_server.o 
-#	mkdir -p $(OUTPUT_BINARY_DIR)
-#	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/vm-serv $^ -lsevstep -pthread -lm -lcurl -ljson-c
-
-#$(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o:  sev-step-lib/raw_spinlock.asm
-#	mkdir -p $(@D)
-#	nasm -f elf64 -o $(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o $^
-
-server: ##Put this in the server folder instead. Make output folder in there that .gitignore can ignore.
+idle-page-tracker: $(OBJ_FILE_DIR)/WASM-step/idle-page-tracker.o $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
-	nasm -f elf64 ./single-step-measure/server/assembly_loops.asm -o $(OUTPUT_BINARY_DIR)/server/assembly_loops.o
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/idle-page-tracker $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
+track-all-page-modes: $(OBJ_FILE_DIR)/WASM-step/track-all-page-modes.o $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/track-all-page-modes $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
+target-measurement: $(OBJ_FILE_DIR)/WASM-step/target-measurement.o $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/target-measurement $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
+send_to_server: $(OBJ_FILE_DIR)/single-step-measure/send_to_server.o
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/send_to_server $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
 clean-apps:
 	rm -f libsevstep.a

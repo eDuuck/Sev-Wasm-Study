@@ -381,6 +381,28 @@ int track_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode m
     return SEV_STEP_OK;
 }
 
+int track_page_range(usp_poll_api_ctx_t *ctx, uint64_t gpa_start, uint64_t gpa_end, enum kvm_page_track_mode mode) {
+    
+    if(gpa_start > gpa_end){
+        perror("track_page_range: gpa_end needs to be larger than gpa_start");
+        return SEV_STEP_ERR;
+    }
+    uint64_t err_no = 0;
+    uint64_t first_page = gpa_start - (gpa_start % 0x1000); 
+    for(uint64_t i = first_page; i <= gpa_end; i += 0x1000){
+        track_page_param_t tp = {
+        .gpa = i,
+        .track_mode = mode,
+        };
+        if(ioctl(ctx->kvm_fd, KVM_TRACK_PAGE, &tp) < 0) {
+            err_no++;
+            perror("track_page_range: Error calling KVM_TRACK_PAGE ioctl");
+        }
+    } 
+    return err_no;
+}
+
+
 int untrack_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode mode) {
      track_page_param_t tp = {
         .gpa = gpa,
@@ -391,6 +413,27 @@ int untrack_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode
         return SEV_STEP_ERR;
     }
     return SEV_STEP_OK;
+}
+
+int untrack_page_range(usp_poll_api_ctx_t *ctx, uint64_t gpa_start, uint64_t gpa_end, enum kvm_page_track_mode mode) {
+    track_page_param_t tp = {
+        .gpa = 0,
+        .track_mode = mode,
+    };
+    if(gpa_start > gpa_end){
+        perror("untrack_page_range: gpa_end needs to be larger than gpa_start");
+        return SEV_STEP_ERR;
+    }
+    uint64_t err_no = 0;
+    uint64_t first_page = gpa_start - (gpa_start % 0x1000);
+    for(uint64_t i = first_page; i <= gpa_end; i += 0x1000){
+        tp.gpa = i;
+        if(ioctl(ctx->kvm_fd, KVM_UNTRACK_PAGE, &tp) < 0) {
+            err_no++;
+            perror("untrack_page: Error calling KVM_UNTRACK_PAGE ioctl");
+        }
+    } 
+    return err_no;
 }
 
 int track_all_pages(usp_poll_api_ctx_t *ctx, enum kvm_page_track_mode mode) {
@@ -511,7 +554,8 @@ int usp_close_ctx(usp_poll_api_ctx_t *ctx) {
             flf_printf("untrack_all_pages with mode %d failed\n",modes[i]);
         }
     }
-
+    //if(!ctx->shared_mem_region->event_acked)
+    //    usp_ack_event(ctx);
     int err = ioctl(ctx->kvm_fd, KVM_USP_CLOSE_POLL_API, NULL );
     if (err < 0) {
         perror("Error calling KVM_USP_INIT_POLL_API ioctl");
