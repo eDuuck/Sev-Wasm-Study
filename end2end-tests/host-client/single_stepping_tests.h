@@ -404,6 +404,7 @@ int single_step_simple(char* format_prefix,single_step_simple_args_t* args,singl
 
     usp_poll_api_ctx_t ctx;
     //TODO: make configurable
+    
     int res = HOST_CLIENT_SUCCESS;
     bool single_stepping_enabled = false;
     bool api_open = false;

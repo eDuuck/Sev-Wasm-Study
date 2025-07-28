@@ -22,7 +22,7 @@ void perform_operations() {
         "xor %%rbx, %%rcx\n\t"
         "or  %%rcx, %%rdx\n\t"
         "shl $1, %%rdx\n\t"
-        "mov (%%r8), %%r9\n\t"     // Read from memory every 10 ops
+        "mov %%r9, (%%r8)\n\t"     // Read from memory every 10 ops
         "mov $0, %%r9\n\t"        // Reset r9
         "add $1, %%r11\n\t"       // Increment instruction counter
         "cmp $200, %%r11\n\t"

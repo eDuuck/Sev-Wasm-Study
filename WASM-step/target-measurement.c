@@ -77,7 +77,7 @@ bool should_abort()
 int main(int argc, char **argv)
 {
     bool DEBUG_EN = false, PRINT_MEAS = false;
-    bool print_help = false, TRACK_MEMORY = false;
+    bool print_help = false, TRACK_MEMORY = true;
     int MAX_MEAS_POINTS = 1e7;
     int MAX_MEAS_TIME = 60;
     int APIC_VAL = 0;
@@ -194,7 +194,7 @@ int main(int argc, char **argv)
     pf_event = (usp_page_fault_event_t *)event_buffer;
     printf("Detected write at GPA: 0x%lx\n", pf_event->faulted_gpa);
     printf("Tracking attack pages done.\n");
-    printf("Proceeding to measurement.\n");
+    
 
     // Now we start the measurement loop.
     uint64_t curr_ex_gpa = 0, last_ex_gpa = 0, last_mem_gpa = 0; // Need last GPA to retrack old pages.
@@ -229,7 +229,7 @@ int main(int argc, char **argv)
     time_t start_time = clock();
     // goto cleanup;
     FREE_AND_ACK_EV();
-
+    printf("Proceeding to measurement.\n");
     while (steps < MAX_MEAS_POINTS) // && atomic_load(&should_run))
     {
         // ret = usp_block_until_event_or_cb(&ctx, &event_type, &event_buffer, should_abort, NULL);
@@ -274,7 +274,11 @@ int main(int argc, char **argv)
             else if (step_event->counted_instructions > 0)
             {
                 mem_step = true;
-                // track_page(&ctx, last_mem_gpa, KVM_PAGE_TRACK_ACCESS); // Reset the write tracking for the last memory page.
+                printf("Memory step detected, tracking last memory page: 0x%lx\n", last_mem_gpa);
+                start_time = clock();
+                track_page(&ctx, last_mem_gpa, KVM_PAGE_TRACK_ACCESS); // Reset the write tracking for the last memory page.
+                printf("Track_page execution time: %ld us\n", (clock() - start_time) / (CLOCKS_PER_SEC / 1000000));
+                goto cleanup;
             }
             if (PRINT_MEAS)
             {

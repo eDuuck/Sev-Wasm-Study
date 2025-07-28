@@ -95,6 +95,10 @@ target-measurement: $(OBJ_FILE_DIR)/WASM-step/target-measurement.o $(OUTPUT_LIB_
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/target-measurement $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
+track-debugging: $(OBJ_FILE_DIR)/WASM-step/track-debugging.o $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/track-debugging $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
 send_to_server: $(OBJ_FILE_DIR)/single-step-measure/send_to_server.o
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/send_to_server $^ -lsevstep -pthread -lm -lcurl -ljson-c

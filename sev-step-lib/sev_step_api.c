@@ -382,7 +382,6 @@ int track_page(usp_poll_api_ctx_t *ctx, uint64_t gpa, enum kvm_page_track_mode m
 }
 
 int track_page_range(usp_poll_api_ctx_t *ctx, uint64_t gpa_start, uint64_t gpa_end, enum kvm_page_track_mode mode) {
-    
     if(gpa_start > gpa_end){
         perror("track_page_range: gpa_end needs to be larger than gpa_start");
         return SEV_STEP_ERR;
@@ -444,7 +443,6 @@ int track_all_pages(usp_poll_api_ctx_t *ctx, enum kvm_page_track_mode mode) {
         perror("track_all_pages: Error calling KVM_TRACK_ALL_PAGES ioctl");
         return SEV_STEP_ERR;
     }
-    
     return SEV_STEP_OK;
 }
 
