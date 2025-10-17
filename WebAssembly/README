@@ -1,0 +1,8 @@
+Following commands is how to run the wasm files
+iwasm-runtime -f 'main' WASM_files/ref_fingerprints.wasm {0 : Unreachable, 1 : 0xDEADBEEF, 0xDEADBEEF : Early return of 0x..... }
+iwasm-runtime -f 'func' WASM_files/ref_c.wasm {Should return}
+iwasm-runtime -f 'func' WASM_files/ref_calls.wasm {This has some unexpected behaviour in SEV-Step, haven't looked into why.}
+
+iwasm-runtime -f 'func' WASM_files/aes.wasm
+iwasm-runtime -f 'main' WASM_files/montgom.wasm
+iwasm-runtime -f '_start' WASM_files/primes.wasm

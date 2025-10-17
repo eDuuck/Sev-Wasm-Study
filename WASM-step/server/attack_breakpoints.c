@@ -72,6 +72,7 @@ void start_measurement_breakpoint()
     }
     printf("Virtual_1: %p → Physical_1: 0x%lx\n", attack_page1, phys1);
     printf("Virtual_2: %p → Physical_2: 0x%lx\n", attack_page2, phys2);
+    printf("0x%lx-0x%lx\n", phys1/0x1000, phys2/0x1000);
     printf("Waiting for user input to start measurement...\n");
     *(volatile int *)attack_page1 = getchar(); // This is the breakpoint to start measurement
     *(volatile int *)attack_page2 = *(volatile int *)attack_page1 * 2;

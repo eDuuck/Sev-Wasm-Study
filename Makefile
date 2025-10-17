@@ -93,6 +93,7 @@ track-all-page-modes: $(OBJ_FILE_DIR)/WASM-step/track-all-page-modes.o $(OUTPUT_
 
 target-measurement: $(OBJ_FILE_DIR)/WASM-step/target-measurement.o $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
+	mkdir -p output
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/target-measurement $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
 track-debugging: $(OBJ_FILE_DIR)/WASM-step/track-debugging.o $(OUTPUT_LIB_DIR)/libsevstep.a

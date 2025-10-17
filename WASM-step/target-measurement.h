@@ -4,6 +4,9 @@
 #define MAX_TRACK_TIME 10
 #define LOWER_MEM_BOUND 0x00100000
 #define UPPER_MEM_BOUND 0x5b03e000
+#define PF_LIMIT 100
+#define MULTISTEP_LIMIT 10
+#define FILENAME_CHAR_LIM 100
 
 typedef struct
 {

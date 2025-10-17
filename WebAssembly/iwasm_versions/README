@@ -1,0 +1,30 @@
+These are different modified iwasm runtimes from the WAMR library.
+Modifications do the following:
+
+The first following runtimes has to be run as sudo. They allocate two attack pages 
+which are used as breakpoints for measurements that are utilized in target-measurement.
+    iwasm_gen
+    iwasm_tight
+    iwasm_tight_mon
+
+    The different between iwasm_gen and iwasm_tight is where the breakpoints are placed.
+In iwasm_tight, the breakpoints are placed inside the actual interpreter_classic file
+which places the breakpoints much closer to the actual measurement region.
+
+    iwasm_tight_mon also uses the second allocated attack page as a monitoring method
+by writing to this page before fetching every new WASM instruction. This has been used to
+correctly synchronize the collected fingerprint traces to the instructions.
+
+    iwasm_gen is very similar to the iwasm_tight where the functionality of the interpreter
+is untouched. Unlike iwasn_tight however, iwasm_gen has placed the breakpoints further away
+from the interpreter region. Instead these breakpoints are placed right before calling the
+interpreter/aot function. It's therefor useable on all setting of the runtime 
+(running AOT, fast interpreter, JIT...).
+
+The final runtime, iwasm_printout, will print out every WASM instruction to the
+terminal before fetching it. This is very similar to the iwasm_tight_mon in the code.
+After executing the entire WASM module, the final printout will print the total executed instructions.
+
+A clean way to log the output of the iwasm_printout is to use the following command:
+
+iwasm_printout -f '[FUNC]' [WASM_FILE] [WASM_INPUTS] | sed -E 's/, Perf/\nPerf/' > result.log
