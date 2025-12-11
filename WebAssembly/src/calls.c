@@ -48,8 +48,8 @@ uint32_t scramble(uint32_t v) {
     return v;
 }
 
-int func() {
-    int a = 13, b = 42;
+int func(int inp) {
+    int a = inp, b = 42;
     tweak_values(&a, &b);
 
     int even = is_even(a + b);

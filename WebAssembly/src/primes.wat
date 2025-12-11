@@ -52,7 +52,7 @@
     )
 
   ;; Main function to find first 100 primes
-  (func $main (export "_start")
+  (func $main (export "main")
     (local $count i32)
     (local $current i32)
     (local $offset i32)

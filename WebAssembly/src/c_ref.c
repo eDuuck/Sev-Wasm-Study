@@ -23,8 +23,7 @@ int is_primeish(int n) {
     return 1;
 }
 
-int func() {
-    int res = 0;
+int func(int res) {
 
     // 1. Math and bit ops
     int a = 23, b = 47;

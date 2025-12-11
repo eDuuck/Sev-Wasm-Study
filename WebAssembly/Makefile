@@ -12,7 +12,7 @@ OUTPUT_FOLDER =WASM_files
 all: wat c_files
 
 
-wat: ref_fingerprints primes montgom
+wat: ref_fingerprints primes montgom memops
 c_files: ref_calls rec_c aes chess
 
 
@@ -28,25 +28,31 @@ montgom:
 	@mkdir -p $(OUTPUT_FOLDER)
 	$(WAT_LD) $(SRC_FOLDER)/montgom.wat -o $(OUTPUT_FOLDER)/montgom.wasm
 
+memops:
+	@mkdir -p $(OUTPUT_FOLDER)
+	$(WAT_LD) $(SRC_FOLDER)/memops.wat -o $(OUTPUT_FOLDER)/memops.wasm
+
 ref_calls:
 	@mkdir -p $(OUTPUT_FOLDER)
-	$(C_LD) -O0 $(C_LDFLAGS) $(SRC_FOLDER)/calls.c -o $(OUTPUT_FOLDER)/ref_calls.wasm
+	$(C_LD) -O1 $(C_LDFLAGS) $(SRC_FOLDER)/calls.c -o $(OUTPUT_FOLDER)/ref_calls.wasm
 
 rec_c:
 	@mkdir -p $(OUTPUT_FOLDER)
-	$(C_LD) -O0 $(C_LDFLAGS) $(SRC_FOLDER)/c_ref.c -o $(OUTPUT_FOLDER)/ref_c.wasm
+	$(C_LD) -O1 $(C_LDFLAGS) $(SRC_FOLDER)/c_ref.c -o $(OUTPUT_FOLDER)/ref_c.wasm
 
 aes: tiny-AES-c
 	@mkdir -p $(OUTPUT_FOLDER)
 	$(C_LD) -O0 $(C_LDFLAGS) $(SRC_FOLDER)/aes.c tiny-AES-c/aes.c -o $(OUTPUT_FOLDER)/aes.wasm
 	$(C_LD) -O1 $(C_LDFLAGS) $(SRC_FOLDER)/aes.c tiny-AES-c/aes.c -o $(OUTPUT_FOLDER)/aes_O1.wasm
 	$(C_LD) -O2 $(C_LDFLAGS) $(SRC_FOLDER)/aes.c tiny-AES-c/aes.c -o $(OUTPUT_FOLDER)/aes_O2.wasm
+	$(C_LD) -O3 $(C_LDFLAGS) $(SRC_FOLDER)/aes.c tiny-AES-c/aes.c -o $(OUTPUT_FOLDER)/aes_O3.wasm
 
 chess:
 	@mkdir -p $(OUTPUT_FOLDER)
 	$(C_LD) -O0 $(CHESS_LDFLAGS) $(CHESS_FOLDER)/*.c -o $(OUTPUT_FOLDER)/chess.wasm
 	$(C_LD) -O1 $(CHESS_LDFLAGS) $(CHESS_FOLDER)/*.c -o $(OUTPUT_FOLDER)/chess_O1.wasm
 	$(C_LD) -O2 $(CHESS_LDFLAGS) $(CHESS_FOLDER)/*.c -o $(OUTPUT_FOLDER)/chess_O2.wasm
+	$(C_LD) -O3 $(CHESS_LDFLAGS) $(CHESS_FOLDER)/*.c -o $(OUTPUT_FOLDER)/chess_O3.wasm
 
 tiny-AES-c:
 	@echo ">>> Checking out https://github.com/kokke/tiny-AES-c.git..."
