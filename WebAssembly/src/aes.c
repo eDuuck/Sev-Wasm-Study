@@ -1,8 +1,11 @@
 #include "../tiny-AES-c/aes.h"
-//#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 
+
 #define ECB 1
+#define REPS 10
+
 
 uint32_t len(uint8_t *text){
     uint32_t length = 0;
@@ -23,7 +26,9 @@ uint32_t len(uint8_t *text){
 
 int func(uint8_t inp){
     uint8_t key[] =  "MyV3ryS3CrEtKeY!";
-    uint8_t text[] = "Hello, WASM World. I'm so happy!";
+    #include "important_script.c"
+    //uint8_t text[] = "Hello, WASM World. I'm so happy!";
+    uint8_t iv[]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
 
     text[0] = inp;
     int checksum = 0;
@@ -31,18 +36,13 @@ int func(uint8_t inp){
     uint32_t textlen = len(text);
 
     if(textlen % 16 != 0){
-        //printf("Inappropriate text length of %d! Aborting.\n",textlen);
-        return 0xdeadbeef;
+        return textlen % 16;
     }
 
     struct AES_ctx ctx;
-    /*printf("Plaintext: \"%s\"\n",text);
-    printf("Text in utf8:\n");
-    print_blocks(text);
-    printf("\n");*/
-    AES_init_ctx(&ctx, key);
-    for(int i = 0; i<textlen;i+=16)
-        AES_ECB_encrypt(&ctx, text+i);
+    AES_init_ctx_iv(&ctx, key, iv);
+    for(int j = 0; j<REPS; j++)
+        AES_CBC_encrypt_buffer(&ctx, text, textlen);
     
     
     for (int i = 0; i < textlen; i+=4)
@@ -50,11 +50,10 @@ int func(uint8_t inp){
                 (text[i+1] << 8) + 
                 (text[i+2] << 16) +
                 (text[i+3] << 24);
-
-    for(int i = 0; i<textlen;i+=16)
-       AES_ECB_decrypt(&ctx, text + i);
-    /*printf("Plaintext: \"%s\"\n",text);
-    printf("Text in utf8:\n");
+    for(int j = 0; j<REPS; j++)
+        AES_CBC_decrypt_buffer(&ctx, text, textlen);
+    //printf("Plaintext: \"%s\"\n",text);
+    /*printf("Text in utf8:\n");
     print_blocks(text);
     printf("\n"); */
 

@@ -24,43 +24,10 @@ NODIR_SRC = $(notdir $(SRCS))
 OBJS = $(addprefix $(OBJ_FILE_DIR)/, $(SRCS:c=o)) # obj/xxx.o obj/folder/xxx .o
 
 
-
-#Intended to be run once at the start
-dependencies:
-	git submodule update --init .
-	mkdir external-dependencies/curl-build
-	cd external-dependencies/curl-build && cmake ../curl && make
-	mkdir external-dependencies/json-c-build
-	mkdir external-dependencies/json-c-install
-	cd external-dependencies/json-c-build && cmake -DCMAKE_INSTALL_PREFIX=../json-c-install ../json-c && make && make install
-
 #build all object files
 $(OBJ_FILE_DIR)/%.o: %.c $(INCS)
 	mkdir -p $(@D)
 	clang $(INCLUDES) $(CFLAGS) -o $@ -c $<  $(INC_DIRS)
-
-kaslr-attack: $(OBJ_FILE_DIR)/example-apps/kaslr-attack/main.o $(OUTPUT_LIB_DIR)/libsevstep.a
-	mkdir -p $(OUTPUT_BINARY_DIR)
-	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/kaslr-attack $^ -lsevstep
-
-end2end-tests-vm-server:
-	mkdir -p ./build/rust/target/
-	cargo build --target-dir ./build/rust/target/  -p vm-server --release || (echo "failed to build end2end-tests-vm-server; exit1")
-
-end2end-tests-hv-client: $(OBJ_FILE_DIR)/end2end-tests/host-client/main.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
-	mkdir -p $(OUTPUT_BINARY_DIR)
-	mkdir -p ${OUTPUT_LOG_DIR}
-	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/end2end-tests-hv-client $^ -lsevstep -lcurl -ljson-c -pthread -lm
-
-paper-experiments: $(OBJ_FILE_DIR)/example-apps/paper_experiments/paper_experiments.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
-	mkdir -p $(OUTPUT_BINARY_DIR)
-	mkdir -p ${OUTPUT_LOG_DIR}
-	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/paper-experiments $^ -lsevstep -lcurl -ljson-c -pthread -lm
-
-nemesis-eval: $(OBJ_FILE_DIR)/example-apps/nemesis_main.o $(OBJ_FILE_DIR)/end2end-tests/host-client/vm-server-client.o $(OUTPUT_LIB_DIR)/libsevstep.a
-	mkdir -p $(OUTPUT_BINARY_DIR)
-	mkdir -p ${OUTPUT_LOG_DIR}
-	clang  $(INCLUDES) $(LIBDIRS)  $(CFLAGS)  -o $(OUTPUT_BINARY_DIR)/nemesis-eval $^ -lsevstep -lcurl -ljson-c -pthread -lm
 
 
 $(OBJ_FILE_DIR)/sev-step-lib/raw_spinlock.o:  sev-step-lib/raw_spinlock.asm
@@ -96,6 +63,11 @@ target-measurement: $(OBJ_FILE_DIR)/WASM-step/target-measurement.o $(OUTPUT_LIB_
 	mkdir -p output
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/target-measurement $^ -lsevstep -pthread -lm -lcurl -ljson-c
 
+wasmtime-measurement: $(OBJ_FILE_DIR)/WASM-step/wasmtime-measurement.o $(OUTPUT_LIB_DIR)/libsevstep.a
+	mkdir -p $(OUTPUT_BINARY_DIR)
+	mkdir -p output
+	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/wasmtime-measurement $^ -lsevstep -pthread -lm -lcurl -ljson-c
+
 track-debugging: $(OBJ_FILE_DIR)/WASM-step/track-debugging.o $(OUTPUT_LIB_DIR)/libsevstep.a
 	mkdir -p $(OUTPUT_BINARY_DIR)
 	clang $(INCLUDES) $(LIBDIRS) $(CFLAGS) -o $(OUTPUT_BINARY_DIR)/track-debugging $^ -lsevstep -pthread -lm -lcurl -ljson-c
@@ -112,5 +84,5 @@ clean: clean-apps
 	rm -rf external-dependencies/json-c-build
 	rm -rf external-dependencies/json-c-install
 	rm -rf external-dependencies/curl-build
-	rm -rf output
+#	rm -rf output
 	cargo clean

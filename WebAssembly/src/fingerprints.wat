@@ -143,28 +143,28 @@
     ;; ---- Comparisons --------
     ;;      OP Codes (45-66)
     (i32.eqz (i32.const 0)) drop
-    (i32.eq (i32.const 5) (i32.const 5)) drop
-    (i32.ne (i32.const 5) (i32.const 6)) drop
-    (i32.lt_s (i32.const -1) (i32.const 0)) drop
-    (i32.lt_u (i32.const 1) (i32.const 2)) drop
-    (i32.gt_s (i32.const 3) (i32.const 1)) drop
-    (i32.gt_u (i32.const 3) (i32.const 1)) drop
-    (i32.le_s (i32.const 3) (i32.const 3)) drop
-    (i32.le_u (i32.const 3) (i32.const 3)) drop
-    (i32.ge_s (i32.const 4) (i32.const 3)) drop
-    (i32.ge_u (i32.const 4) (i32.const 3)) drop
+    (i32.eq (i32.const 0x3F) (i32.const 0x40)) drop
+    (i32.ne (i32.const 0x401) (i32.const 0x2000)) drop
+    (i32.lt_s (i32.const 0x2050) (i32.const 0x3000)) drop
+    (i32.lt_u (i32.const 0x100000) (i32.const 0x200000)) drop
+    (i32.gt_s (i32.const 0x0800FFFF) (i32.const 0x08000000)) drop
+    (i32.gt_u (i32.const 0x3F) (i32.const 0x40)) drop
+    (i32.le_s (i32.const 0x401) (i32.const 0x2000)) drop
+    (i32.le_u (i32.const 0x2050) (i32.const 0x3000)) drop
+    (i32.ge_s (i32.const 0x100000) (i32.const 0x200000)) drop
+    (i32.ge_u (i32.const 0x0800FFFF) (i32.const 0x08000000)) drop
 
     (i64.eqz (i64.const 0)) drop
-    (i64.eq (i64.const 7) (i64.const 7)) drop
-    (i64.ne (i64.const 7) (i64.const 8)) drop
-    (i64.lt_s (i64.const -2) (i64.const -1)) drop
-    (i64.lt_u (i64.const 2) (i64.const 3)) drop
-    (i64.gt_s (i64.const 9) (i64.const 8)) drop
-    (i64.gt_u (i64.const 9) (i64.const 8)) drop
-    (i64.le_s (i64.const 5) (i64.const 5)) drop
-    (i64.le_u (i64.const 5) (i64.const 5)) drop
-    (i64.ge_s (i64.const 6) (i64.const 5)) drop
-    (i64.ge_u (i64.const 6) (i64.const 5)) drop
+    (i64.eq (i64.const 0x3F) (i64.const 0x40)) drop
+    (i64.ne (i64.const 0x401) (i64.const 0x2000)) drop
+    (i64.lt_s (i64.const 0x2050) (i64.const 0x3000)) drop
+    (i64.lt_u (i64.const 0x100000) (i64.const 0x200000)) drop
+    (i64.gt_s (i64.const 0x0800FFFF) (i64.const 0x08000000)) drop
+    (i64.gt_u (i64.const 0x0400000000) (i64.const 0x04000FFFFF)) drop
+    (i64.le_s (i64.const 0x020000000000) (i64.const 0x020FFF000000)) drop
+    (i64.le_u (i64.const 0x01000000000000) (i64.const 0x0100000FFFFF00)) drop
+    (i64.ge_s (i64.const 0x0080000000000000) (i64.const 0x008000000FFF0000)) drop
+    (i64.ge_u (i64.const 0x8000000000000000) (i64.const 0x800000000000FFFF)) drop
 
     (f32.eq (f32.const 1.0) (f32.const 1.0)) drop
     (f32.ne (f32.const 1.0) (f32.const 0.5)) drop
