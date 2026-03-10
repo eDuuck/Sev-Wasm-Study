@@ -1,3 +1,11 @@
+# This is the work of recovering executed WASM code in a SEV-Enabled machine.
+This documentation is still a work in progress and will be updated incremeantally over the following days. There is a lot to cover and i refer the [original repo](https://github.com/sev-step/sev-step-userland) for now.
+
+Our experiments were conducted on an AMD EPYC 8124P. 
+If you are running a different machine your may run into some other issues than we did. However, I hope that if you are planning to run some SEV single-stepping experiments, this repository will help you out in your endevours.
+
+
+
 # SEV STEP Library
 
 This repo contains the userspace library of the SEV STEP framework. To use it, you also need to run
@@ -5,6 +13,10 @@ the corresponding kernel. If you have not cloned this repo as a submodule of the
 
 There also is an [experimental version](https://github.com/sev-step/sev-step-rust-userland) of this library that tries to make single-stepping easier by providing an API with high level abstractions. 
 
+
+
+
+## Prior
 ## Features
 
 - **Interactive Page Granular Tracking:** Remove access rights from VM pages and observe the corresponding page faults. Upon a page fault, the VM is halted and the user space code is notified via a shared memory channel. The VM remains halted until the user space code finished processing the event. This allows the user space code to dynamically react to events, enabling is to implement complex attack logic.

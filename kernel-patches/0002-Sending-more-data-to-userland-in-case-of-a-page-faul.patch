@@ -1,0 +1,53 @@
+From f7f5bcad32ccec7d675f8eed6d7a6c7417bd7f9d Mon Sep 17 00:00:00 2001
+From: Markus Berthilsson <Markus.Berthilsson@eit.lth.se>
+Date: Fri, 11 Jul 2025 13:55:09 +0200
+Subject: [PATCH 2/3] Sending more data to userland in case of a page-fault
+
+---
+ arch/x86/kvm/mmu/mmu.c                 | 8 +++++++-
+ include/uapi/linux/sev-step/sev-step.h | 8 +++++++-
+ 2 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/mmu/mmu.c b/arch/x86/kvm/mmu/mmu.c
+index dde13af13636..1d5ae461f743 100644
+--- a/arch/x86/kvm/mmu/mmu.c
++++ b/arch/x86/kvm/mmu/mmu.c
+@@ -3965,9 +3965,15 @@ static bool page_fault_handle_page_track(struct kvm_vcpu *vcpu,
+ 		int send_ret = 0;
+ 		usp_page_fault_event_t pf_event = {
+ 			//.id = ,
+-			.fault_mode = mode,
+ 			.faulted_gpa = (uint64_t)(fault->gfn << PAGE_SHIFT),
+ 			.is_decrypted_vmsa_data_valid = false,
++			.pf_mode = mode,
++			.pf_exec = fault->exec,
++			.pf_write = fault->write,
++			.pf_present = fault->present,
++			.pf_rsvd = fault->rsvd,
++			.pf_user = fault->user,
++			.pf_err = (uint32_t) fault->error_code,
+ 		};
+ 		mutex_lock(&sev_step_config_mutex);
+ 		if( global_sev_step_config.decrypt_vmsa ) {
+diff --git a/include/uapi/linux/sev-step/sev-step.h b/include/uapi/linux/sev-step/sev-step.h
+index c90e7da636e5..5fb4b2b30663 100644
+--- a/include/uapi/linux/sev-step/sev-step.h
++++ b/include/uapi/linux/sev-step/sev-step.h
+@@ -177,7 +177,13 @@ typedef struct {
+ 	// gpa of the page fault
+ 	uint64_t faulted_gpa;
+ 	sev_step_partial_vmcb_save_area_t decrypted_vmsa_data;
+-	int fault_mode;
++	int pf_mode;
++	bool pf_exec;
++	bool pf_write;
++	bool pf_present;
++	bool pf_rsvd;
++	bool pf_user;
++	uint32_t pf_err; // error code of the page fault
+ 	/// @brief if true, decrypted_vmsa_data contains valid data
+ 	bool is_decrypted_vmsa_data_valid;
+ } usp_page_fault_event_t;
+-- 
+2.34.1
+

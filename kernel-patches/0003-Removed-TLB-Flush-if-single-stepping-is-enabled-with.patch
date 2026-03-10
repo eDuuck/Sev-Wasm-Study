@@ -1,0 +1,156 @@
+From ce49fd099fade1fc340a7c90fb066fce8fe29438 Mon Sep 17 00:00:00 2001
+From: Markus Berthilsson <Markus.Berthilsson@eit.lth.se>
+Date: Mon, 28 Jul 2025 19:56:04 +0200
+Subject: [PATCH 3/3] Removed TLB-Flush if single-stepping is enabled with
+ tlb-flush enabled
+
+---
+ arch/x86/kvm/sev-step/sev-step.c                | 17 +++++++++++------
+ .../x86/kvm/sev-step/userspace_page_track_api.c | 10 ++++------
+ include/linux/sev-step/sev-step.h               |  4 ++--
+ virt/kvm/kvm_main.c                             |  8 ++++++--
+ 4 files changed, 23 insertions(+), 16 deletions(-)
+
+diff --git a/arch/x86/kvm/sev-step/sev-step.c b/arch/x86/kvm/sev-step/sev-step.c
+index 6df31c4da39a..714175382cfe 100644
+--- a/arch/x86/kvm/sev-step/sev-step.c
++++ b/arch/x86/kvm/sev-step/sev-step.c
+@@ -312,7 +312,7 @@ bool __untrack_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+ EXPORT_SYMBOL(__untrack_single_page);
+ 
+ bool __track_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+-                         enum kvm_page_track_mode mode) {
++                         enum kvm_page_track_mode mode, bool do_flush ) {
+   int idx;
+   bool ret;
+   struct kvm_memory_slot *slot;
+@@ -321,9 +321,14 @@ bool __track_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+   idx = srcu_read_lock(&vcpu->kvm->srcu);
+   slot = kvm_vcpu_gfn_to_memslot(vcpu, gfn);
+   if (slot != NULL && !kvm_page_track_is_active(vcpu, gfn, mode)) {
+-
+     write_lock(&vcpu->kvm->mmu_lock);
+-    kvm_slot_page_track_add_page(vcpu->kvm, slot, gfn, mode);
++	if(do_flush) {
++    	kvm_slot_page_track_add_page(vcpu->kvm, slot, gfn, mode);
++	}
++	else 
++	{
++		kvm_slot_page_track_add_page_no_flush(vcpu->kvm, slot, gfn, mode);
++	}
+     write_unlock(&vcpu->kvm->mmu_lock);
+     ret = true;
+ 
+@@ -344,7 +349,7 @@ bool __track_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+ EXPORT_SYMBOL(__track_single_page);
+ 
+ //track all pages; taken from severed repo
+-long kvm_start_tracking(struct kvm_vcpu *vcpu,enum kvm_page_track_mode mode ) {
++long kvm_start_tracking(struct kvm_vcpu *vcpu,enum kvm_page_track_mode mode, bool do_flush ) {
+ 	long count = 0;
+ 	u64 iterator, iterat_max;
+ 	struct kvm_memslots* slots;
+@@ -374,7 +379,7 @@ long kvm_start_tracking(struct kvm_vcpu *vcpu,enum kvm_page_track_mode mode ) {
+ 			srcu_read_unlock(&vcpu->kvm->srcu, srcu_lock_retval);
+ 		}
+ 	}
+-	if( count > 0 ) {
++	if( count > 0 && do_flush) {
+ 		kvm_flush_remote_tlbs(vcpu->kvm);
+ 	}
+     return count;
+@@ -382,7 +387,7 @@ long kvm_start_tracking(struct kvm_vcpu *vcpu,enum kvm_page_track_mode mode ) {
+ EXPORT_SYMBOL(kvm_start_tracking);
+ 
+ //untrack all pages; taken from severed repo
+-long kvm_stop_tracking(struct kvm_vcpu *vcpu,enum kvm_page_track_mode mode ) {
++long kvm_stop_tracking(struct kvm_vcpu *vcpu,enum kvm_page_track_mode mode) {
+ 		long count = 0;
+ 		u64 iterator, iterat_max;
+ 		struct kvm_memslots* slots;
+diff --git a/arch/x86/kvm/sev-step/userspace_page_track_api.c b/arch/x86/kvm/sev-step/userspace_page_track_api.c
+index 63bdcd0c6b5c..d85c0225f7fb 100644
+--- a/arch/x86/kvm/sev-step/userspace_page_track_api.c
++++ b/arch/x86/kvm/sev-step/userspace_page_track_api.c
+@@ -40,7 +40,8 @@ int usp_send_and_block(usp_poll_api_ctx_t* ctx, usp_event_type_t event_type, voi
+     uint64_t event_bytes = 0;
+     uint64_t abort_after = 0;
+     uint64_t event_buffer_offset = 0;
+-    const uint64_t sec_to_nanosec = 1000000000ULL;
++    //const uint64_t sec_to_nanosec = 1000000000ULL;
++    const uint64_t msec_to_nanosec = 1000000ULL;
+ 
+ 
+ /*
+@@ -138,7 +139,7 @@ we also reset have_event
+     //wait until we are allowed to send the next event
+     //wait for ack, but with tiemout. Otherwise small bugs in userland easily lead
+     //to a kernel hang
+-    abort_after = ktime_get_ns() + 10ULL * sec_to_nanosec;
++    abort_after = ktime_get_ns() + 100ULL * msec_to_nanosec;
+     //printk("usp_send_and_block: waiting with return untill user acked...\n");
+     while(1) {
+         raw_spinlock_lock(&ctx->shared_mem_region->spinlock);
+@@ -160,10 +161,7 @@ we also reset have_event
+         }
+ 
+         raw_spinlock_unlock(&ctx->shared_mem_region->spinlock);
+-
+-       
+-
+-
++        
+     }
+     //printk("usp_send_and_block: user acked the event ");
+ 
+diff --git a/include/linux/sev-step/sev-step.h b/include/linux/sev-step/sev-step.h
+index db2f2b1ae4d4..659475db3adc 100644
+--- a/include/linux/sev-step/sev-step.h
++++ b/include/linux/sev-step/sev-step.h
+@@ -210,7 +210,7 @@ bool __untrack_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+  * @return true on success
+  */
+ bool __track_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+-			 enum kvm_page_track_mode mode);
++			 enum kvm_page_track_mode mode, bool do_flush);
+ 
+ /**
+  * @brief Start the tracking of all pages
+@@ -219,7 +219,7 @@ bool __track_single_page(struct kvm_vcpu *vcpu, gfn_t gfn,
+  * @param mode page tracking mode
+  * @return long the number of tracked pages
+  */
+-long kvm_start_tracking(struct kvm_vcpu *vcpu, enum kvm_page_track_mode mode);
++long kvm_start_tracking(struct kvm_vcpu *vcpu, enum kvm_page_track_mode mode, bool do_flush);
+ 
+ /**
+  * @brief Stop the tracking of all pages
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index eb98b53fb424..1230f5c68410 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -5535,7 +5535,9 @@ static long kvm_dev_ioctl(struct file *filp,
+ 
+ 		if (!__track_single_page(xa_load(&global_sev_step_config.main_vm->vcpu_array,0),
+ 					 param.gpa >> PAGE_SHIFT,
+-					 param.track_mode)) {
++					 param.track_mode,
++					 global_sev_step_config.do_tlb_flush_before_each_step &&
++					 global_sev_step_config.single_stepping_status == SEV_STEP_STEPPING_STATUS_ENABLED)) {
+ 			printk("KVM_TRACK_PAGE: __track_single_page failed");
+ 			return -EFAULT;
+ 		}
+@@ -5589,7 +5591,9 @@ static long kvm_dev_ioctl(struct file *filp,
+ 		}
+ 
+ 		tracked_pages =
+-			kvm_start_tracking(xa_load(&global_sev_step_config.main_vm->vcpu_array,0), param.track_mode);
++			kvm_start_tracking(xa_load(&global_sev_step_config.main_vm->vcpu_array,0), param.track_mode,
++					 global_sev_step_config.do_tlb_flush_before_each_step &&
++					 global_sev_step_config.single_stepping_status == SEV_STEP_STEPPING_STATUS_ENABLED);
+ 		kvmm_ssdbg_log("KVM_TRACK_ALL_PAGES: tracked %lu pages\n",tracked_pages);
+ 
+ 		r = 0;
+-- 
+2.34.1
+
